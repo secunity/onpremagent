@@ -1,0 +1,7 @@
+APScheduler==3.9.1
+paramiko==2.10.4
+requests==2.27.1
+RouterOS-api==0.17.0
+jstyleson==0.0.2
+bson==0.5.10
+
