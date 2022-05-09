@@ -6,7 +6,7 @@ Please follow the following steps:
 
 ###### Download the latest docker image
 ```shell script
-$ docker pull secunity/onprem-agent:latest
+$ docker pull secunity/onpremagent:latest
 ```
 
 ###### Create a config file
@@ -16,14 +16,15 @@ The name of the config file must be "secunity.conf"
 
 The config file consists of the following ttributes:
 
-| Name       | Mandatory | Description                                                          | Default |
-|------------| --- |----------------------------------------------------------------------| --- |
-| identifier | V | Unique network device identifier                                     | |
-| host       | V | Network device hostname/ip                                           | |
-| port       | | Port to use for SSH session                                          | 22 |
-| vendor     | | The network device vendor.<br/>Options: cisco, juniper, arista, mikrotik     | cisco |
-| username   | V | Username to use for SSH session                                      | |
-| password   | | Password to use for SSH session. Mandatory if username is specified. | |
+| Name       | Mandatory | Description                                                              | Default |
+|------------|-----------|--------------------------------------------------------------------------|---------|
+| identifier | V         | Unique network device identifier                                         |         |
+| host       | V         | Network device hostname/ip                                               |         |
+| port       |           | Port to use for SSH session                                              | 22      |
+| vendor     |           | The network device vendor.<br/>Options: cisco, juniper, arista, mikrotik | cisco   |
+| username   | V         | Username to use for SSH session                                          |         |
+| password   | V         | Password to use for SSH session     |         |
+| verbose   |           | Indicates whether to perform verbose logging                                   | false      |
 
 A sample config file:
 
@@ -43,7 +44,7 @@ A sample config file:
 $ docker create -it \
 --name CONTAINER_NAME \
 --restart unless-stopped \
-secunity/onprem-agent:latest
+secunity/onpremagent:latest
 ```
 
 ###### Copy the edited config file inside the docker container
