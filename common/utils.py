@@ -262,10 +262,3 @@ def remove_unserializable_types(obj: Any,
         return JSONEncoder.default(self, obj)
     else:
         return obj
-
-
-if __name__ == '__main__':
-    print(get_supervisor_programs_autostart())
-
-    update_supervisor_program_autostart(program='worker_sync_flows',
-                                        autostart=False)

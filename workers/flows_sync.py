@@ -3,7 +3,7 @@ from typing import Optional, Dict, List, Any
 
 from command_workers.mikrotik import MikrotikCommandWorker
 from common.enums import FLOW_TYPE
-from common.logs import Log
+from common.logs import Log, LException
 from workers.flows_applier import BaseFlowsApplier
 
 
@@ -20,20 +20,16 @@ class FlowsSync(BaseFlowsApplier):
                      credentials: Optional[Dict] = None) -> bool:
         flows_by_status_str = self.flows_by_status_str(flows_by_status)
         Log.debug(f'found {self.total_flows(flows_by_status)} flows: {flows_by_status_str}')
-        # flows_to_apply_by_id = {
-        #     command_worker.flow_id(flow): flow
-        #     for status, flows in flows_by_status.items()
-        #     for flow in flows
-        # }
-        success, current_flows, ex = self.wrap_call_with_try(self.get_flows_from_router,
-                                                             command_worker=command_worker,
-                                                             resource=resource,
-                                                             credentials=credentials)
-        if not success:
-            if ex:
-                Log.exception(f'failed to get flows from router - ex: "{str(ex)}"', ex=ex)
-            self.set_failed_router_call()
+
+        try:
+            current_flows = self.get_flows_from_router(command_worker=command_worker,
+                                                       resource=resource,
+                                                       credentials=credentials)
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to get flows from the router - {logged}error: {str(ex)}')
             return False
+
         Log.debug(f'found {len(current_flows)} on the router')
         current_flows_by_ids = {
             command_worker.flow_id(flow): flow
@@ -48,16 +44,17 @@ class FlowsSync(BaseFlowsApplier):
             if flow_id in current_flows_by_ids:
                 current_flows_by_ids.pop(flow_id, None)
                 continue
-            success, result, ex = self.wrap_call_with_try(f=self.apply_flow,
-                                                          flow=flow,
-                                                          command_worker=command_worker,
-                                                          credentials=credentials)
-            if success:
+
+            try:
+                result = self.apply_flow(flow=flow,
+                                         command_worker=command_worker,
+                                         resource=resource,
+                                         credentials=credentials)
                 self.set_success_router_call()
                 success_apply.append(flow)
-            else:
-                if ex:
-                    Log.exception(f'failed to apply flow: "{flow.get("id")}"', ex=ex)
+            except Exception as ex:
+                logged = f'logged - ' if isinstance(ex, LException) else ''
+                Log.exception(f'failed to apply flow with id "{flow_id}" - {logged}error: "{str(ex)}"')
                 self.set_failed_router_call()
                 failed_apply.append(flow)
 
@@ -66,16 +63,16 @@ class FlowsSync(BaseFlowsApplier):
         success_remove, failed_remove = [], []
         status = 'remove'
         for flow_id, flow in current_flows_by_ids.items():
-            success, result, ex = self.wrap_call_with_try(f=self.remove_flow,
-                                                          flow=flow,
-                                                          command_worker=command_worker,
-                                                          credentials=credentials)
-            if success:
+            try:
+                result = self.remove_flow(flow=flow,
+                                          command_worker=command_worker,
+                                          resource=resource,
+                                          credentials=credentials)
                 self.set_success_router_call()
                 success_remove.append(flow)
-            else:
-                if ex:
-                    Log.exception(f'failed to apply flow: "{flow.get("id")}"', ex=ex)
+            except Exception as ex:
+                logged = f'logged - ' if isinstance(ex, LException) else ''
+                Log.exception(f'failed to remove flow with id "{flow_id}" - {logged}error: "{str(ex)}"')
                 self.set_failed_router_call()
                 failed_remove.append(flow)
 
@@ -92,11 +89,3 @@ class FlowsSync(BaseFlowsApplier):
         elif status in ('remove', 'removed', 'removed_moderation_approved'):
             return 'remove'
         Log .error_raise(f'invalid flow status: "{status}"')
-
-
-if __name__ == '__main__':
-    _config = ''
-    _worker = FlowsSync(config=_config)
-    _command_worker = _worker.init_command_worker()
-    _worker.work(command_worker=_command_worker)
-    # _worker.start()

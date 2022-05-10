@@ -121,12 +121,10 @@ class Log(metaclass=LogMeta):
             return None
         if isinstance(_raise, Exception):
             pass
-        elif isinstance(_raise, str):
-            _raise = cls.ex_cls(log=True)
-        elif is_bool(_raise):
+        elif isinstance(_raise, str) or _raise is True:
             _raise = cls.ex_cls(log=True)
         else:
-            return
+            return None
         raise _raise
 
     @classmethod

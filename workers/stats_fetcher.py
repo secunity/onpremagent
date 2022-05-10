@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 
 from common.api_secunity import send_request, REQUEST_TYPE
 from common.consts import PROGRAM
-from common.logs import Log
+from common.logs import Log, LException
 from common.utils import is_bool
 from workers.bases import BaseWorker
 
@@ -23,33 +23,31 @@ class StatsFetcher(BaseWorker):
     def work(self,
              credentials: Optional[Dict[str, Any]] = None,
              *args, **kwargs):
-        Log.debug('starting new iteration')
+        Log.debug('starting a new iteration')
         start_time = datetime.datetime.utcnow()
 
         if not self._pre_validate_work_params(**kwargs):
             return self.report_task_failure()
 
-        success, command_worker, ex = self.wrap_call_with_try(f=self.init_command_worker,
-                                                              credentials=credentials)
-        if not success:
-            if ex:
-                Log.exception(f'failed to initialize command_worker - vendor: "{self.vendor}"', ex=ex)
+        command_worker = self.init_command_worker(credentials=credentials)
+        if not command_worker:
+            Log.error(f'failed to initialize command_worker - vendor: "{self.vendor}"')
             return self.report_task_failure()
 
         router_flows = self.get_flows_from_router(command_worker=command_worker,
                                                   credentials=credentials,
                                                   flow_number=True)
         if router_flows is None:
-            Log.warning(f'an error occurred while trying to get flows from the router: "{str(ex)}"')
+            Log.warning(f'an error occurred while trying to get flows from the router')
             return self.report_task_failure()
 
-        success, result, ex = self.wrap_call_with_try(f=self.wrap_result,
-                                                      success=success,
-                                                      payload=router_flows,
-                                                      cur_time=True)
-        if not success:
-            if ex:
-                Log.exception('failed to build response for API', ex=ex)
+        try:
+            result = self.wrap_result(success=True,
+                                      payload=router_flows,
+                                      cur_time=True)
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to wrap result to api - {logged}error: "{str(ex)}"')
             return self.report_task_failure()
 
         params = dict(request_type=REQUEST_TYPE.SEND_STATS,
@@ -57,12 +55,11 @@ class StatsFetcher(BaseWorker):
                       payload=result)
         params.update({k: v for k, v in self.args.items() if k not in params})
 
-        success, result, ex = self.wrap_call_with_try(f=send_request,
-                                                      config=self.args,
-                                                      **params)
-        if not success or not result:
-            if ex:
-                Log.exception('failed to send stats to BE API', ex=ex)
+        try:
+            result = send_request(config=self.args, **params)
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to send stats to BE api - {logged}error: "{str(ex)}"')
             self.set_failed_api_call()
             return self.report_task_failure()
         self.set_success_api_call()

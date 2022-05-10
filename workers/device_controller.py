@@ -4,7 +4,7 @@ from typing import Optional, Union, Dict, List, Any
 
 from command_workers.bases import ICommandWorker
 from common.consts import PROGRAM, BOOL_VALUES
-from common.logs import Log
+from common.logs import Log, LException
 from common.utils import get_float, strftime
 from workers.bases import BaseWorker
 
@@ -104,11 +104,11 @@ class DeviceController(BaseWorker):
         Log.debug('starting to remove all flows')
 
         if not command_worker:
-            success, command_worker, ex = self.wrap_call_with_try(f=self.init_command_worker,
-                                                                  credentials=credentials)
-            if not success:
-                if ex:
-                    Log.exception(f'failed to initialize command_worker - vendor: "{self.vendor}"', ex=ex)
+            try:
+                command_worker = self.init_command_worker(credentials=credentials)
+            except Exception as ex:
+                logged = f'logged - ' if isinstance(ex, LException) else ''
+                Log.exception(f'failed to initialize command_worker - vendor: "{self.vendor}" - {logged}error: {str(ex)}')
                 return False
 
         if not flows:
@@ -122,24 +122,17 @@ class DeviceController(BaseWorker):
         success_flows, failed_flows = [], []
         for flow in flows:
             flow_id = command_worker.flow_id(flow)
-            success, result, ex = self.wrap_call_with_try(self.remove_flow,
-                                                          flow=flow,
-                                                          command_worker=command_worker,
-                                                          credentials=credentials)
-            if success:
-                Log.debug(f'flow "{flow_id}" was removed successfully')
+            try:
+                result = self.remove_flow(flow=flow,
+                                          command_worker=command_worker,
+                                          credentials=credentials)
+                Log.debug(f'flow with id "{flow_id}" was removed successfully')
                 success_flows.append(flow)
-            else:
-                if ex:
-                    Log.exception(f'failed to remove flow "{flow_id}" - ex: "{str(ex)}"', ex=ex)
+                self.set_success_router_call()
+            except Exception as ex:
+                logged = f'logged - ' if isinstance(ex, LException) else ''
+                Log.exception(f'failde to remove flow with id "{flow_id}" - {logged}error: "{str(ex)}"')
                 failed_flows.append(flow)
+                self.set_failed_router_call()
 
         return len(failed_flows) == 0
-
-
-if __name__ == '__main__':
-    _config = ''
-    _worker = DeviceController(config=_config)
-    _command_worker = _worker.init_command_worker()
-    _worker.work(command_worker=_command_worker)
-    # _worker.start()

@@ -358,35 +358,46 @@ class MikrotikCommandWorker(CommandWorker):
                                           multiple=False, **kwargs)
         return flow is not None
 
-    def get_flow_number(self,
-                        flow_id: Union[str, ObjectId],
-                        credentials: Optional[Dict[str, Any]] = None,
-                        resource: Optional = None,
-                        lock: Optional[bool] = True,
-                        **kwargs) -> Tuple[bool, Optional[str]]:
+    def get_flow_by_id_from_router(self,
+                                   flow_id: Union[str, ObjectId],
+                                   credentials: Optional[Dict[str, Any]] = None,
+                                   resource: Optional = None,
+                                   lock: Optional[bool] = True,
+                                   **kwargs) -> Optional[Dict[str, Any]]:
         flows = self.get_flows_from_router(credentials=credentials,
                                            resource=resource,
                                            flow_number=True,
                                            lock=lock,
                                            **kwargs)
         if flows is None:
-            error = 'cannot look for flow number, no flows are applied on the router'
-            Log.warning(error)
-            return False, error
+            Log.warning('cannot look for flow by id, no flows are applied on the router')
+            return None
 
         if not flows:
-            error = f'flow with id "{flow_id}" does not exist on the router'
-            Log.warning(error)
-            return False, error
+            Log.info(f'flow with id "{flow_id}" does not exist on the router')
+            return None
 
         flow_id = str(flow_id)
-        flow = next((_ for _ in flows if str(_.get('id') or '') == flow_id), None)
+        flow = next((_ for _ in flows
+                     if str(_.get('id') or '') == flow_id), None)
+        return flow
+
+    def get_flow_number(self,
+                        flow_id: Union[str, ObjectId],
+                        credentials: Optional[Dict[str, Any]] = None,
+                        resource: Optional = None,
+                        lock: Optional[bool] = True,
+                        **kwargs) -> Optional[str]:
+        flow = self.get_flow_by_id_from_router(flow_id=flow_id,
+                                               credentials=credentials,
+                                               resource=resource,
+                                               lock=lock, **kwargs)
         if not flow:
             error = f'flow with id "{flow_id}" does not exist on the router'
             Log.warning(error)
-            return False, error
+            return None
 
-        return True, flow.get('number')
+        return flow.get('number')
 
     def remove_flow(self,
                     flow,
@@ -397,25 +408,21 @@ class MikrotikCommandWorker(CommandWorker):
         flow_id = flow.get('id')
         if not flow_id:
             Log.error_raise('flow without id')
-        existing_flow = False
-        flow_number = flow.get('number')
-        if not flow_number:
-            found, flow_number = self.get_flow_number(flow_id=flow_id,
-                                                      credentials=credentials,
-                                                      resource=resource,
-                                                      lock=lock, **kwargs)
-            if not found:
-                error = flow_number if flow_number else 'flow without - cannot remove flow'
-                Log.error_raise(error)
-            existing_flow = True
         if not resource:
             credentials: Dict[str, object] = self.parse_credentials(credentials)
             resource = self.initialize_connection_and_api_connector(credentials=credentials,
                                                                     resource_path='/ip/firewall/filter')
-        if not existing_flow and \
-                not self.has_existing_flow(flow=flow_id, resource=resource):
-            Log.warning(f'requested to remove a non existing flow ({flow_id})  - not removing it')
+        existing_flow = self.get_flow_by_id_from_router(flow_id=flow_id,
+                                                        credentials=credentials,
+                                                        resource=resource,
+                                                        lock=lock)
+        if not existing_flow:
+            Log.error(f'a flow with id "{flow_id}" does not exist on the router - not continuing')
             return True
+
+        flow_number = flow.get('number')
+        if not flow_number:
+            flow_number = existing_flow.get('number')
 
         def _send_request():
             try:
@@ -427,7 +434,8 @@ class MikrotikCommandWorker(CommandWorker):
                     time.sleep(0.05)
                 return _result
             except Exception as ex:
-                Log.exception_raise(f'failed to add a flow ("{flow_id}") to router - ex: "{str(ex)}"')
+                logged = f'logged - ' if isinstance(ex, LException) else ''
+                Log.exception(f'failed to remove flow with id "{_id}" from router - {logged}error: "{str(ex)}"')
                 return None
 
         if lock:
@@ -436,7 +444,7 @@ class MikrotikCommandWorker(CommandWorker):
         else:
             result = _send_request()
 
-        Log.debug(f'flow "{flow_id}" removed successfully')
+        Log.debug(f'flow with id "{flow_id}" was removed successfully')
         return True
 
     def apply_flow(self,
@@ -455,7 +463,9 @@ class MikrotikCommandWorker(CommandWorker):
         if not resource:
             credentials: Dict[str, object] = self.parse_credentials(credentials)
             resource = self.get_resource(credentials=credentials)
-        if validate_existing and self.has_existing_flow(flow=flow_id, resource=resource):
+        if validate_existing and self.has_existing_flow(flow=flow_id,
+                                                        resource=resource,
+                                                        lock=lock):
             Log.warning(f'requested to apply an already applied flow ({flow_id})  - not reapplying it')
             return True
         if not flow_id.startswith(self.comment_prefix()):

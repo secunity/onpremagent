@@ -134,6 +134,10 @@ class BaseWorker(ABC):
             Log.error('no identifier was specified')
             return False
 
+        if not self.vendor:
+            Log.error('no vendor was specified')
+            return False
+
         return True
 
     @abstractmethod
@@ -171,41 +175,20 @@ class BaseWorker(ABC):
                             credentials: Optional[Dict[str, Any]] = None) -> Optional[ICommandWorker]:
         if not credentials:
             credentials = get_ssh_credentials_from_config(self._args)
-        command_worker = None
         try:
-            command_worker = init_command_worker(vendor=self.vendor, credentials=credentials)
-        except LException as le:
-            pass
+            return init_command_worker(vendor=self.vendor,
+                                       credentials=credentials)
         except Exception as ex:
-            Log.exception_raise(f'failed to initialize command_worker - vendor: "{self.vendor}" - '
-                                f'ex : "{str(ex)}"', ex=ex)
-
-        return command_worker
-
-    def wrap_call_with_try(self,
-                           f: Callable,
-                           *args, **kwargs) -> Tuple[bool, Any, Optional[Exception]]:
-        result = None
-        exception = None
-        try:
-            result = f(*args, **kwargs)
-            success = True
-        except LException:
-            Log.exception(f'failed to perform operation: "{f.__name__}" - ex: "{str(ex)}')
-            success = False
-        except Exception as ex:
-            Log.exception(f'failed to perform operation: "{f.__name__}" - ex: "{str(ex)}')
-            exception = ex
-            success = False
-
-        return success, result, exception
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to initialize command_worker - vendor: "{self.vendor}" - {logged}error: "{str(ex)}"')
+            return None
 
     def report_task_success(self,
-                            **kwargs):
+                            *args, **kwargs):
         return True
 
     def report_task_failure(self,
-                            **kwargs):
+                            *args, **kwargs):
         return False
 
     @staticmethod
@@ -270,23 +253,24 @@ class BaseWorker(ABC):
                               credentials: Optional[Dict[str, Any]] = None,
                               flow_number: Optional[bool] = False,
                               *args, **kwargs) -> Optional[List[Dict[str, Any]]]:
-        success, flows, ex = self.wrap_call_with_try(f=command_worker.get_flows_from_router,
-                                                     credentials=credentials,
-                                                     resource=resource,
-                                                     filter_by_prefix=True,
-                                                     flow_number=flow_number)
-        if not success:
-            if ex:
-                Log.exception('failed to get stats from router', ex=ex)
+        try:
+            flows = command_worker.get_flows_from_router(credentials=credentials,
+                                                         resource=resource,
+                                                         filter_by_prefix=True,
+                                                         flow_number=flow_number)
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to get flows from the router - {logged}error: {str(ex)}')
             self.set_failed_router_call()
             return None
-        self.set_success_router_call()
 
+        self.set_success_router_call()
         return flows
 
     def remove_flow(self,
                     flow: Dict[str, Any],
                     command_worker: Optional[TCommandWorker] = None,
+                    resource: Optional[Any] = None,
                     credentials: Optional[Dict] = None,
                     **kwargs) -> Union[bool]:
         if not credentials:
@@ -294,54 +278,66 @@ class BaseWorker(ABC):
         if not command_worker:
             command_worker = init_command_worker(vendor=self.vendor,
                                                  credentials=credentials)
+        flow_id = flow['id']
         try:
-            result = command_worker.remove_flow(flow=flow, credentials=credentials)
-            self.set_success_router_call()
-            success = True
+            result = command_worker.remove_flow(flow=flow,
+                                                credentials=credentials,
+                                                resource=resource)
         except Exception as ex:
-            Log.exception(f'failed to get stats from router: "{str(ex)}"')
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to get stats from router - {logged}error: "{str(ex)}"')
             self.set_failed_router_call()
-            success = False
+            return False
+        self.set_success_router_call()
 
-        end_time = datetime.datetime.utcnow()
-        return success
+        try:
+            result = command_worker.set_flow_status_api(identifier=self._identifier,
+                                                        flow_id=flow_id,
+                                                        status='removed')
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to set flow status (api call) - {logged}error: "{str(ex)}"')
+            self.set_failed_api_call()
+            return False
+
+        self.set_success_api_call()
+        Log.debug(f'flow ({flow_id}) status was updated to backend')
+        return True
 
     def apply_flow(self,
                    flow: Dict[str, Any],
                    command_worker: Optional[TCommandWorker] = None,
                    credentials: Optional[Dict] = None,
+                   resource: Optional[Any] = None,
                    **kwargs) -> bool:
         flow_id = flow.get('id')
         if not command_worker:
             command_worker = init_command_worker(vendor=self.vendor,
                                                  credentials=credentials)
         try:
-            success = command_worker.apply_flow(flow=flow, credentials=credentials)
+            success = command_worker.apply_flow(flow=flow,
+                                                credentials=credentials,
+                                                resource=resource)
             self.set_success_router_call()
-            success = True
         except Exception as ex:
-            Log.exception(f'failed to get stats from router: "{str(ex)}"')
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to get stats from router - {logged}error: "{str(ex)}"')
             self.set_failed_router_call()
-            success = False
+            return False
 
-        if not success:
-            end_time = datetime.datetime.utcnow()
-            return success
-
-        success, result, ex = self.wrap_call_with_try(f=command_worker.set_flow_status_api,
-                                                      identifier=self._identifier,
-                                                      flow_id=flow_id,
-                                                      status='applied')
-        if not success:
-            if ex:
-                Log.exception(f'failed to inform api about applied flow', ex=ex)
+        try:
+            result = command_worker.set_flow_status_api(identifier=self._identifier,
+                                                        flow_id=flow_id,
+                                                        status='applied')
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to set flow status (api call) - {logged}error: "{str(ex)}"')
             self.set_failed_api_call()
-        else:
-            self.set_success_api_call()
-            Log.debug(f'flow ({flow_id}) status was updated to backend')
+            return False
 
-        end_time = datetime.datetime.utcnow()
-        return success
+        self.set_success_api_call()
+        Log.debug(f'flow ({flow_id}) status was updated to backend')
+        return True
 
 
 def get_debug_config(filename: Optional[str] = None) -> Optional[str]:

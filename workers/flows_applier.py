@@ -6,7 +6,7 @@ from command_workers.mikrotik import MikrotikCommandWorker
 from common.consts import PROGRAM
 from common.enums import FLOW_TYPE
 from common.flows import default_callback__get_flow_status
-from common.logs import Log
+from common.logs import Log, LException
 from workers.bases import BaseWorker
 
 
@@ -32,21 +32,20 @@ class BaseFlowsApplier(BaseWorker, ABC):
 
     def init_command_worker_and_resource(self,
                                          credentials: Optional[Dict[str, Any]] = None,
-                                         **kwargs) -> Optional[Tuple[MikrotikCommandWorker, Any]]:
-        success, command_worker, ex = self.wrap_call_with_try(f=self.init_command_worker,
-                                                              credentials=credentials)
-        if not success:
-            if ex:
-                Log.exception(f'failed to initialize command_worker - vendor: "{self.vendor}"', ex=ex)
-            return None
+                                         **kwargs) -> Tuple[Optional[MikrotikCommandWorker], Optional[Any]]:
+        try:
+            command_worker: MikrotikCommandWorker = self.init_command_worker(credentials=credentials)
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to init command worker - {logged}error: "{str(ex)}"')
+            return None, None
 
-        success, resource, ex = self.wrap_call_with_try(f=command_worker.get_resource,
-                                                        credentials=credentials)
-        if not success:
-            if ex:
-                Log.exception(f'failed to get resource - error: "{str(ex)}"')
-            self.set_failed_router_call()
-            return None
+        try:
+            resource = command_worker.get_resource(credentials=credentials)
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to init command worker resource - {logged}error: "{str(ex)}"')
+            return None, None
 
         return command_worker, resource
 
@@ -61,8 +60,7 @@ class BaseFlowsApplier(BaseWorker, ABC):
              flow_type: Optional[Union[FLOW_TYPE, str]] = None,
              get_flow_status_callback: Optional[Callable[[Dict[str, Any], bool], str]] = None,
              *args, **kwargs):
-        Log.debug('starting new iteration')
-        start_time = datetime.datetime.utcnow()
+        Log.debug('starting a new iteration')
 
         if not self._pre_validate_work_params(**kwargs):
             return self.report_task_failure()
@@ -73,39 +71,39 @@ class BaseFlowsApplier(BaseWorker, ABC):
             return self.report_task_failure()
         flow_type = _flow_type
 
-        result_tuple = self.init_command_worker_and_resource(credentials=credentials)
-        if not result_tuple:
+        command_worker, resource = self.init_command_worker_and_resource(credentials=credentials)
+        if not command_worker:
             Log.error(f'failed to init command worker and resource')
             self.set_failed_router_call()
             return self.report_task_failure()
-        command_worker: MikrotikCommandWorker = result_tuple[0]
-        resource = result_tuple[1]
 
         if not get_flow_status_callback:
             get_flow_status_callback = self.get_flow_status
-        success, flows_by_status, ex = self.wrap_call_with_try(f=command_worker.get_flows_from_api,
-                                                               identifier=self._identifier,
-                                                               flow_type=flow_type,
-                                                               parse=False,
-                                                               get_flow_status_callback=get_flow_status_callback,
-                                                               config=self.args)
-        if not success:
-            if ex:
-                Log.exception(f'failed to flows from api - flow_type - vendor: "{self.vendor}"', ex=ex)
+        try:
+            flows_by_status = command_worker.get_flows_from_api(identifier=self._identifier,
+                                                                flow_type=flow_type,
+                                                                parse=False,
+                                                                get_flow_status_callback=get_flow_status_callback,
+                                                                config=self.args)
+
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to get flows from api - flow_type: "{flow_type}" - {logged}error: "{str(ex)}"')
             self.set_failed_api_call()
             return self.report_task_failure()
         self.set_success_api_call()
 
         if not flows_by_status:
-            end_time = datetime.datetime.utcnow()
             return self.report_task_success()
 
-        success, _none, ex = self.wrap_call_with_try(f=self.handle_flows,
-                                                     flows_by_status=flows_by_status,
-                                                     command_worker=command_worker)
-        if not success:
-            if ex:
-                Log.exception('failed to handle flows from api', ex=ex)
+        try:
+            success = self.handle_flows(flows_by_status=flows_by_status,
+                                        command_worker=command_worker,
+                                        resource=resource,
+                                        credentials=command_worker.credentials)
+        except Exception as ex:
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.exception(f'failed to apply/remove flows  - flow_type: "{flow_type}" - {logged}error: "{str(ex)}"')
             self.set_failed_router_call()
             return self.report_task_failure()
         self.set_success_router_call()
@@ -139,31 +137,6 @@ class BaseFlowsApplier(BaseWorker, ABC):
         total_flows = sum([len(_) for _ in total_flows]) if total_flows else 0
         return total_flows
 
-    def apply_flows(self,
-                    flows_by_status: Dict[str, List[Dict[str, Any]]],
-                    command_worker: Optional[MikrotikCommandWorker],
-                    status: str,
-                    credentials: Optional[Dict] = None) -> bool:
-        flows_to_handle = flows_by_status.get(status)
-        if not flows_to_handle:
-            Log.debug(f'no flows with statys "{status}" were found')
-            return True
-
-        status = True
-        for flow in flows_to_handle:
-            success, result, ex = self.wrap_call_with_try(self.apply_flow,
-                                                          flow=flow,
-                                                          command_worker=command_worker)
-            if success:
-                self.set_success_router_call()
-            else:
-                if ex:
-                    Log.exception(f'failed to apply flow: "{flow.get("id")}"', ex=ex)
-                self.set_failed_router_call()
-                status = False
-
-        return status
-
     def get_flow_operation_func_by_status(self,
                                           status: str) -> \
             Callable[[Dict[str, Any], MikrotikCommandWorker, Optional[Dict]], bool]:
@@ -191,16 +164,26 @@ class BaseFlowsApplier(BaseWorker, ABC):
         for status, flows in flows_by_status.items():
             Log.debug(f'starting to handle {len(flows)} flows of status "{status}"')
             for flow in flows:
-                func = self.get_flow_operation_func_by_status(status=status)
-                success, result, ex = self.wrap_call_with_try(f=func,
-                                                              flow=flow,
-                                                              command_worker=command_worker)
-                if success and result:
+                if status in ('apply', 'applied'):
+                    func = self.apply_flow
+                elif status in ('remove', 'removed'):
+                    func = self.remove_flow
+                else:
+                    Log.error(f'invalid flow status: "{status}"')
+                    continue
+                try:
+                    result = func(flow=flow,
+                                  command_worker=command_worker,
+                                  resource=resource,
+                                  credentials=credentials)
+                except Exception as ex:
+                    logged = f'logged - ' if isinstance(ex, LException) else ''
+                    Log.exception(f'failed to handle flow - action: "{func.__name__}" - {logged}error: "{str(ex)}"')
+                    result = None
+                if result:
                     self.set_success_router_call()
                     success_flows.append(flow)
                 else:
-                    if ex:
-                        Log.exception(f'failed to apply flow: "{flow.get("id")}"', ex=ex)
                     self.set_failed_router_call()
                     failed_flows.append(flow)
 
@@ -209,46 +192,9 @@ class BaseFlowsApplier(BaseWorker, ABC):
                   f'failed - {len(failed_flows)}')
         return len(failed_flows) == 0
 
-    def handle_apply_flow(self,
-                          flow: Dict[str, Any],
-                          command_worker: MikrotikCommandWorker) -> bool:
-        success, result, ex = self.wrap_call_with_try(f=self.apply_flow,
-                                                      flow=flow,
-                                                      command_worker=command_worker)
-        if success:
-            self.set_success_router_call()
-
-            flow_id = flow.get('id')
-            success, result, ex = self.wrap_call_with_try(f=command_worker.set_flow_status_api,
-                                                          identifier=self._identifier,
-                                                          flow_id=flow_id,
-                                                          status='applied')
-            if not success:
-                if ex:
-                    Log.exception(f'failed to inform api about applied flow', ex=ex)
-                self.set_failed_api_call()
-            else:
-                self.set_success_api_call()
-                Log.debug(f'flow ({flow_id}) status was updated to backend')
-        else:
-            if ex:
-                Log.exception(f'failed to apply flow - ex: "{str(ex)}"', ex=ex)
-            self.set_success_router_call()
-
-        return success
-
 
 class FlowsApplier(BaseFlowsApplier):
 
     _seconds_interval = int(datetime.timedelta(seconds=10).total_seconds())
     _flow_type = FLOW_TYPE.APPLY_REMOVE
     _filter_flows_to_handle_statuses = (FLOW_TYPE.APPLY, FLOW_TYPE.REMOVE, FLOW_TYPE.APPLY_REMOVE)
-
-
-if __name__ == '__main__':
-    import os
-    from pathlib import Path
-    path = Path(__file__)
-    _conf = os.path.join(str(path.parent.parent), 'secret-secunity.conf')
-    _applier = FlowsApplier(config=_conf)
-    _applier.work()
