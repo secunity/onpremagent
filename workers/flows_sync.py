@@ -3,6 +3,7 @@ from typing import Optional, Dict, List, Any
 
 from command_workers.mikrotik import MikrotikCommandWorker
 from common.enums import FLOW_TYPE
+from common.flows import default_callback__get_flow_status
 from common.logs import Log, LException
 from workers.flows_applier import BaseFlowsApplier
 
