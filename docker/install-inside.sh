@@ -7,8 +7,10 @@ then
 fi
 
 
-apt-get update --allow-releaseinfo-change && apt-get upgrade -y && apt-get autoclean && apt-get autoremove -y  &&\
-apt-get install -y nano procps supervisor git ntp wget ca-certificates cron
+apt-get update --allow-releaseinfo-change
+apt-get update && apt-get upgrade -y && apt-get autoclean && apt-get autoremove -y  &&\
+apt-get install -y nano procps supervisor git ntp wget ca-certificates
+# cron
 
 useradd -p "$PASSWORD" -u $USER_ID "$USER"
 usermod -a -G root "$USER"
@@ -116,8 +118,8 @@ echo "
 [program:ntp]
 command=bash -c \"sleep 5 && service ntp start\"
 
-[program:cron]
-command=bash -c \"sleep 5 && service ntp start\"
+; [program:cron]
+; command=bash -c \"sleep 5 && service cron start\"
 " >> /etc/supervisor/conf.d/secunity.conf
 
 

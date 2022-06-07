@@ -53,7 +53,7 @@ class FORMAT_KEYS:
 REQUEST_TYPE_DEFAULT = {
     REQUEST_TYPE.SEND_STATS:  {
         KEYS.PATH: f'/fstats/{{{FORMAT_KEYS.IDENTIFIER}}}/flows/stat',
-        KEYS.METHOD: 'POST',
+        KEYS.METHOD: 'PUT',
     },
     REQUEST_TYPE.GET_FLOWS: {
         KEYS.PATH: f'/fstats/{{{FORMAT_KEYS.IDENTIFIER}}}/flows/{{{FORMAT_KEYS.FLOW_TYPE}}}',

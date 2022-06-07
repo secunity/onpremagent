@@ -11,23 +11,6 @@ python3 -m pip install --upgrade virtualenv
 
 REPO="git@github.com:secunity/onpremagent.git"
 
-TMP_FOLDER="/opt/secunity"
-rm -rf $TMP_FOLDER
-mkdir -p $TMP_FOLDER
-git clone $REPO $TMP_FOLDER
-cd $TMP_FOLDER
-
-python3 -m virtualenv venv
-source venv/bin/activate
-
-pip install --upgrade pip setuptools
-git fetch --all
-git checkout $SECUNITY_BRANCH
-git pull
-pip install -r requirements.txt
-deactivate
-
-
 echo "#!/bin/bash
 " > /opt/upgrade-secunity-user.sh
 chmod 777 /opt/upgrade-secunity-user.sh
@@ -43,7 +26,7 @@ for PROGRAM in $SECUNITY_PROGRAMS; do
   python3 -m virtualenv venv
   source venv/bin/activate
 
-  pip install --upgrade pip setuptools
+  pip install -U pip setuptools
   git fetch --all
   git checkout $SECUNITY_BRANCH
   git pull
@@ -59,7 +42,6 @@ pip install -r requirements.txt
 deactivate
   " >> /opt/upgrade-secunity-user.sh
 
-  # cp -r $TMP_FOLDER/* $FOLDER
 done
 
 

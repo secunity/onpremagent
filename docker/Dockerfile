@@ -18,7 +18,7 @@ COPY            install-inside-user.sh /opt
 RUN             bash -x /opt/install-inside-user.sh &&\
                 rm /opt/install-inside-user.sh &&\
                 rm /opt/env-worker &&\
-                rm /home/secunity/.ssh/github-access-token
+                rm -rf /home/secunity/.ssh
 
 USER            root
 
