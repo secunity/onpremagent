@@ -7,7 +7,7 @@ from common.enums import VENDOR
 from command_workers.bases import CommandWorker
 from common.files_handler import FileLock
 from common.flows import get_flows_by_status
-from common.logs import Log
+from common.logs import Log, LException
 from common.utils import parse_ip, get_ipv4, get_int, to_ObjectId
 
 
