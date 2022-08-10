@@ -1,4 +1,6 @@
 import datetime
+import os.path
+import uuid
 from typing import List, Optional, Dict, Any
 
 from common.api_secunity import send_request, REQUEST_TYPE
@@ -81,3 +83,34 @@ class StatsFetcher(BaseWorker):
         if cur_time:
             result['local_time'] = datetime.datetime.utcnow()
         return result
+
+
+if __name__ == '__main__':
+    import uuid as _uuid
+    import json as _json
+    _identifier = "62447c7549b5bf207dfe4064"
+    _host = '172.20.1.10'
+    _username = 'admin'
+    _password = 'admin'
+    _vendor = 'mikrotik'
+
+    _url_host = '127.0.0.1'
+    _url_scheme = 'http'
+    _url_port = 5000
+
+    _config = dict(identifier=_identifier,
+                   host=_host,
+                   username=_username,
+                   password=_password,
+                   vendor=_vendor,
+                   verbose=True,
+                   url_host=_url_host,
+                   url_scheme=_url_scheme,
+                   url_port=_url_port
+                   )
+    _filename = os.path.join('/tmp', f'{_uuid.uuid4()}.json')
+    with open(_filename, 'w') as _f:
+        _json.dump(_config, _f)
+    _worker = StatsFetcher(config=_filename)
+    _worker.work()
+

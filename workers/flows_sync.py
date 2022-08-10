@@ -90,3 +90,34 @@ class FlowsSync(BaseFlowsApplier):
         elif status in ('remove', 'removed', 'removed_moderation_approved'):
             return 'remove'
         Log .error_raise(f'invalid flow status: "{status}"')
+
+if __name__ == '__main__':
+    import uuid as _uuid
+    import json as _json
+    import os
+    _identifier = "62447c7549b5bf207dfe4064"
+    _host = '172.20.1.10'
+    _username = 'admin'
+    _password = 'admin'
+    _vendor = 'mikrotik'
+
+    _url_host = '127.0.0.1'
+    _url_scheme = 'http'
+    _url_port = 5000
+
+    _config = dict(identifier=_identifier,
+                   host=_host,
+                   username=_username,
+                   password=_password,
+                   vendor=_vendor,
+                   verbose=True,
+                   url_host=_url_host,
+                   url_scheme=_url_scheme,
+                   url_port=_url_port
+                   )
+    _filename = os.path.join('/tmp', f'{_uuid.uuid4()}.json')
+
+    with open(_filename, 'w') as _f:
+        _json.dump(_config, _f)
+    _worker = FlowsSync(config=_filename)
+    _worker.work()
