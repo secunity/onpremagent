@@ -16,8 +16,8 @@ if [ "$(docker images | grep -c ${SECUNITY_DOCKER_IMAGE})" -lt 2 ]; then
 fi
 
 img_ids=$(docker images | grep  "${SECUNITY_DOCKER_IMAGE}" | awk '{print $3}')
-for i in $img_ids; do
-  for i in $(docker ps | grep "${i}" | awk '{print $NF}'); do
+for m in $img_ids; do
+  for i in $(docker ps --filter ancestor=${m} --filter status=running | grep -v CONTAINER | awk '{print $NF}'); do
     # Prepare backup folder for onprem agent configuration file
     mkdir -p "${i}"
     # Backup configuration file from currently running onprem agent docker to this folder
@@ -32,5 +32,7 @@ for i in $img_ids; do
     docker start "${i}-${curr_date}"
     # Remove the backup folder
     rm -fr "${i}"
+    # Nothing to do else
+    exit 0
   done
 done
