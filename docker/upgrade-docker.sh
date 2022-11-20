@@ -15,19 +15,22 @@ if [ "$(docker images | grep -c ${SECUNITY_DOCKER_IMAGE})" -lt 2 ]; then
   exit 1
 fi
 
-for i in $(docker ps | grep "${SECUNITY_DOCKER_IMAGE}" | awk '{print $NF}'); do
-  # Prepare backup folder for onprem agent configuration file
-  mkdir -p "${i}"
-  # Backup configuration file from currently running onprem agent docker to this folder
-  docker cp "${i}:/etc/secunity/secunity.conf" "${i}/secunity.conf"
-  # Create a new docker based on the newly fetched docker image
-  docker create -it --name "${i}-${curr_date}" --restart unless-stopped "${SECUNITY_DOCKER_IMAGE}:${SECUNITY_DOCKER_TAG}"
-  # Copy the backed up configuration file into the new docker
-  docker cp "${i}/secunity.conf" "${i}-${curr_date}:/etc/secunity/secunity.conf"
-  # Stop the old docker
-  docker stop "${i}"
-  # Start the new docker
-  docker start "${i}-${curr_date}"
-  # Remove the backup folder
-  rm -fr "${i}"
+img_ids=$(docker images | grep  "${SECUNITY_DOCKER_IMAGE}" | awk '{print $3}')
+for i in $img_ids; do
+  for i in $(docker ps | grep "${i}" | awk '{print $NF}'); do
+    # Prepare backup folder for onprem agent configuration file
+    mkdir -p "${i}"
+    # Backup configuration file from currently running onprem agent docker to this folder
+    docker cp "${i}:/etc/secunity/secunity.conf" "${i}/secunity.conf"
+    # Create a new docker based on the newly fetched docker image
+    docker create -it --name "${i}-${curr_date}" --restart unless-stopped "${SECUNITY_DOCKER_IMAGE}:${SECUNITY_DOCKER_TAG}"
+    # Copy the backed up configuration file into the new docker
+    docker cp "${i}/secunity.conf" "${i}-${curr_date}:/etc/secunity/secunity.conf"
+    # Stop the old docker
+    docker stop "${i}"
+    # Start the new docker
+    docker start "${i}-${curr_date}"
+    # Remove the backup folder
+    rm -fr "${i}"
+  done
 done
