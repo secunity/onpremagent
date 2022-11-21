@@ -78,6 +78,8 @@ def get_url_params(config: Optional[Dict[str, Any]] = None):
 
 
 def load_env_settings(args: Optional[dict] = None) -> Dict[str, Any]:
+    return {}
+
     if not isinstance(args, dict):
         args = {}
     update = {
