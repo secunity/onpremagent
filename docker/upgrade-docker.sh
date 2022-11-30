@@ -5,6 +5,17 @@ SECUNITY_DOCKER_IMAGE="secunity/onpremagent"
 
 curr_date=$(date '+%Y%m%d-%H%M%S')
 
+if [ $# -eq 0 ]; then
+    echo "ERROR: No arguments supplied"
+    echo "Usage: "
+    echo "${0} <docker name> "
+    sleep 2
+    exit 1
+fi
+
+SECUNITY_DOCKER_NAME=$1
+
+
 # Pull the latest docker image
 docker pull "${SECUNITY_DOCKER_IMAGE}"
 
@@ -15,9 +26,9 @@ if [ "$(docker images | grep -c ${SECUNITY_DOCKER_IMAGE})" -lt 2 ]; then
   exit 1
 fi
 
-img_ids=$(docker images | grep  "${SECUNITY_DOCKER_IMAGE}" | awk '{print $3}')
-for m in $img_ids; do
-  for i in $(docker ps --filter ancestor=${m} --filter status=running | grep -v CONTAINER | awk '{print $NF}'); do
+for i in $(docker ps | grep "${SECUNITY_DOCKER_NAME}" | awk '{print $NF}'); do
+    echo "==> Handling docker: ${i}"
+    sleep 2
     # Prepare backup folder for onprem agent configuration file
     mkdir -p "${i}"
     # Backup configuration file from currently running onprem agent docker to this folder
@@ -33,6 +44,7 @@ for m in $img_ids; do
     # Remove the backup folder
     rm -fr "${i}"
     # Nothing to do else
-    exit 0
-  done
 done
+
+echo "Finishing... if there is no message '==> Handling docker' it means something went wrong... Verify the docker name parameter provided!"
+sleep 2
