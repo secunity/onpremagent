@@ -51,7 +51,8 @@ class StatsFetcher(BaseWorker):
 
         router_flows = self.get_flows_from_router(command_worker=command_worker,
                                                   credentials=credentials,
-                                                  flow_number=True)
+                                                  flow_number=True,
+                                                  vrf=kwargs.get('vrf'))
         if router_flows is None:
             err_msg = f'an error occurred while trying to get flows from the router'
             Log.warning(err_msg)

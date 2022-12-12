@@ -154,6 +154,7 @@ def send_request(request_type: Union[REQUEST_TYPE, str],
         Log.exception(f'failed to send message {request_str}. ex: "{str(ex)}"')
         return None
     if not success:
+        Log.error("API function was not successfully performed")
         return None
     try:
         result = response.json() if success and 'application/json' in response.headers.get('Content-Type') else \
