@@ -106,7 +106,8 @@ class MikrotikCommandWorker(CommandWorker):
         try:
             connection = pool(host=credentials['host'],
                               username=credentials['user'],
-                              password=credentials['password'])
+                              password=credentials['password'],
+                              plaintext_login=True)
         except Exception as ex:
             Log.exception_raise(f'failed to initialize connection to router: "{str(ex)}"', ex=ex)
         try:
