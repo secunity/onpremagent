@@ -122,7 +122,7 @@ class SshCommandWorker(CommandWorker, ABC):
             'hostname': params['host'],
             'port': params['port'],
             'username': params['user'],
-            'allow_agent': True,
+            'allow_agent': False,
             'look_for_keys': params['look_for_keys'] if params.get('look_for_keys') in (True, False) else False
         }
 

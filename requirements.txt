@@ -3,9 +3,11 @@ paramiko==2.11.0
 requests==2.27.1
 RouterOS-api==0.17.0
 jstyleson==0.0.2
-bson==0.5.10
+#bson==0.5.10
 python-dateutil==2.8.2
 
 common~=0.1.2
 pymongo==4.1.1
 pytz~=2022.5
+cryptography~=2.8
+pycryptodome==3.14.1
