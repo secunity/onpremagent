@@ -8,6 +8,26 @@ from common.utils import is_bool
 from workers.bases import BaseWorker
 
 
+def decrypt_symetric(db, word, key=None):
+    from Crypto.Cipher import AES
+    import base64
+    if isinstance(word, str):
+        word = word.encode('utf-8')
+    if key is None:
+        key = db.SecunitySettings.find_one('cipher-symetric_default')['value']
+
+    word = base64.b64decode(word)
+    iv = word[0:AES.block_size]
+    cipher = AES.new(base64.b64decode(key), AES.MODE_CFB, iv)
+    return cipher.decrypt(word[16:]).decode('utf-8')
+
+
+def decrypt(db, word):
+    try:
+        return decrypt_symetric(db, word=word)
+    except Exception as ex:
+        return word
+
 class StatsFetcher(BaseWorker):
 
     @classmethod
@@ -42,6 +62,19 @@ class StatsFetcher(BaseWorker):
 
         if not self._pre_validate_work_params(**kwargs):
             return self.report_task_failure()
+
+        if kwargs.get('cloud'):
+            db_credentials = self._get_credentials_from_db(kwargs.get('mongodb'))
+            if db_credentials:
+                credentials = db_credentials
+                kwargs['password'] = db_credentials['password']
+                kwargs['username'] = db_credentials['username']
+                kwargs['host'] = db_credentials['host']
+                kwargs['port'] = db_credentials['port']
+            else:
+                err_msg = f'failed to get credentials from db'
+                Log.error(err_msg)
+                # return self.report_task_failure(err_msg)
 
         command_worker = self.init_command_worker(credentials=credentials)
         if not command_worker:
@@ -100,3 +133,39 @@ class StatsFetcher(BaseWorker):
         if cur_time:
             result['local_time'] = datetime.datetime.utcnow()
         return result
+
+
+    def _get_credentials_from_db(self, mongodb_params: Any):
+        try:
+            from pymongo import MongoClient
+            from bson import ObjectId
+
+            usr = mongodb_params.get('username') or mongodb_params.get('user')
+            passwd = mongodb_params.get('password')
+            host = mongodb_params.get('host')
+            port = mongodb_params.get('port', 27017)
+            auth = mongodb_params.get('authSource') or 'admin'
+
+            uri = f"mongodb://{usr}:{passwd}@{host}:{port}/{auth}"
+            client = MongoClient(uri)
+
+            db = client[mongodb_params.get('db_name', 'secunity')]
+            acc_device = db.AccountNetworkDevices.find_one({
+                "client.flowspec.stats_settings.use_agent": True,
+                'client.flowspec.stats_settings.agent_id': ObjectId(self.identifier)
+            })
+            if not acc_device:
+                Log.error(f'failed to get account network device from db')
+                return None
+            ssh_usr = acc_device.get('client', {}).get('flowspec', {}).get('ssh_settings', {}).get('username')
+            password = acc_device.get('client', {}).get('flowspec', {}).get('ssh_settings', {}).get('password')
+            ssh_pass = decrypt(db, password)
+            ssh_host = acc_device.get('client', {}).get('flowspec', {}).get('ssh_settings', {}).get('ip')
+            ssh_port = acc_device.get('client', {}).get('flowspec', {}).get('ssh_settings', {}).get('port', 22)
+
+            self._vendor = acc_device.get('vendor')
+            return dict(host=ssh_host, port=ssh_port, username=ssh_usr, password=ssh_pass) \
+                if ssh_usr and ssh_pass and ssh_host else None
+        except Exception as ex:
+            Log.exception(f'failed to get credentials from db - "{str(ex)}"')
+            return None

@@ -37,7 +37,11 @@ class BaseWorker(ABC):
     def __init__(self, *args, **kwargs):
         self._identifier = None
         self._args: Dict[str, Any] = self.initialize_start(**kwargs)
-        self._vendor = VENDOR.parse(self._args['vendor'])
+        try:
+            self._vendor = VENDOR.parse(self._args.get('vendor', 'unknown'))
+        except Exception as ex:
+            Log.warning(f'failed to parse vendor - error: "{str(ex)}"')
+            self._vendor = ''
         self._jobs = []
         self._command_worker = None
 
@@ -133,6 +137,10 @@ class BaseWorker(ABC):
         if not self.identifier:
             Log.error('no identifier was specified')
             return False
+
+        if kwargs.get('cloud'):
+            Log.debug('cloud mode is enabled')
+            return True
 
         if not self.vendor:
             Log.error('no vendor was specified')
