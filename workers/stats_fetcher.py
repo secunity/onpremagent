@@ -66,11 +66,9 @@ class StatsFetcher(BaseWorker):
         if kwargs.get('cloud'):
             db_credentials = self._get_credentials_from_db(kwargs.get('mongodb'))
             if db_credentials:
+                vrf = db_credentials.pop('vrf', None)
+                kwargs['vrf'] = vrf if vrf else kwargs.get('vrf')
                 credentials = db_credentials
-                kwargs['password'] = db_credentials['password']
-                kwargs['username'] = db_credentials['username']
-                kwargs['host'] = db_credentials['host']
-                kwargs['port'] = db_credentials['port']
             else:
                 err_msg = f'failed to get credentials from db'
                 Log.error(err_msg)
@@ -163,8 +161,10 @@ class StatsFetcher(BaseWorker):
             ssh_host = acc_device.get('client', {}).get('flowspec', {}).get('ssh_settings', {}).get('ip')
             ssh_port = acc_device.get('client', {}).get('flowspec', {}).get('ssh_settings', {}).get('port', 22)
 
+            vrf = acc_device.get('default_stats_interface_name')
+
             self._vendor = acc_device.get('vendor')
-            return dict(host=ssh_host, port=ssh_port, username=ssh_usr, password=ssh_pass) \
+            return dict(host=ssh_host, port=ssh_port, username=ssh_usr, password=ssh_pass, vrf=vrf) \
                 if ssh_usr and ssh_pass and ssh_host else None
         except Exception as ex:
             Log.exception(f'failed to get credentials from db - "{str(ex)}"')
