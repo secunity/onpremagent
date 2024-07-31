@@ -162,6 +162,8 @@ class StatsFetcher(BaseWorker):
             port = mongodb_params.get('port', 27017)
             auth = mongodb_params.get('authSource') or 'admin'
 
+            Log.debug(f'get credentials from db - "{usr}@{host}:{port}/{auth}"')
+
             uri = f"mongodb://{usr}:{passwd}@{host}:{port}/{auth}"
             client = MongoClient(uri)
 
@@ -182,6 +184,9 @@ class StatsFetcher(BaseWorker):
             vrf = acc_device.get('default_stats_interface_name')
 
             self._vendor = acc_device.get('vendor')
+
+            Log.debug(f'Credentials from DB - "{ssh_usr}@{ssh_host}:{ssh_port}", vrf: "{vrf}", vendor: "{self.vendor}"')
+
             return dict(host=ssh_host, port=ssh_port, username=ssh_usr, password=ssh_pass, vrf=vrf) \
                 if ssh_usr and ssh_pass and ssh_host else None
         except Exception as ex:
