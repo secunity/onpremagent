@@ -1,3 +1,4 @@
+import argparse
 import datetime
 from typing import List, Optional, Dict, Any
 
@@ -97,7 +98,7 @@ class StatsFetcher(BaseWorker):
         return self.report_task_success()
 
     def _perform_flows(self, command_worker, credentials, vrf, stats_type):
-        Log.debug(f'performing flows for {stats_type}')
+        Log.debug(f'Perform for {stats_type}, {credentials.get("user")}@{credentials.get("host")}')
 
         router_flows = self.get_flows_from_router(command_worker=command_worker,
                                                   credentials=credentials,
@@ -186,3 +187,47 @@ class StatsFetcher(BaseWorker):
         except Exception as ex:
             Log.exception(f'failed to get credentials from db - "{str(ex)}"')
             return None
+
+def main():
+    # Set the default values
+    MDB_HOST = '172.17.1.153'
+    MDB_PORT = 27017
+    MDB_USER = 'admin'
+    MDB_AUTH_SOURCE = 'admin'
+
+    # Parse the command line arguments
+    args = argparse.ArgumentParser()
+    args.add_argument('--host', dest='host', default=MDB_HOST)
+    args.add_argument('--port', dest='port', default=MDB_PORT)
+    args.add_argument('--user', dest='user', default=MDB_USER)
+    args.add_argument('--authSource', dest='authSource', default=MDB_AUTH_SOURCE)
+    args.add_argument('--password', dest='password', required=True, default=None)
+    # args identifier
+    args.add_argument('-i', '--identifier', dest='identifier', required=True, default=None)
+    # args VRF
+    args.add_argument('--vrf', dest='vrf', default=None)
+    # args cloud
+    args.add_argument('-c', '--cloud', dest='cloud', default=True)
+    # args verbose
+    args.add_argument('-v', '--verbose', dest='verbose', default=True)
+
+    args = args.parse_args()
+    # convert args to dict
+    args_dict = vars(args)
+    args_dict['mongodb'] = dict(
+        host=args_dict.pop('host'),
+        port=args_dict.pop('port'),
+        username=args_dict.pop('user'),
+        authSource=args_dict.pop('authSource'),
+        password=args_dict.pop('password')
+    )
+
+    try:
+        worker = StatsFetcher()
+        worker.work(credentials=None, **args_dict)
+    except Exception as ex:
+        Log.exception(f'failed to run the worker - "{str(ex)}"')
+
+# main
+if __name__ == '__main__':
+    main()
