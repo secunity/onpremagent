@@ -1,3 +1,4 @@
+import argparse
 import datetime
 from typing import List, Optional, Dict, Any
 
@@ -54,20 +55,19 @@ class StatsFetcher(BaseWorker):
             Log.exception(err_msg)
             return None
 
-    def work(self,
-             credentials: Optional[Dict[str, Any]] = None,
-             *args, **kwargs):
+    def work(self, credentials: Optional[Dict[str, Any]] = None, *args, **kwargs):
         Log.debug('starting a new iteration')
         start_time = datetime.datetime.utcnow()
 
         if not self._pre_validate_work_params(**kwargs):
             return self.report_task_failure()
 
+        vrf = kwargs.get('vrf')
         if kwargs.get('cloud'):
             db_credentials = self._get_credentials_from_db(kwargs.get('mongodb'))
             if db_credentials:
-                vrf = db_credentials.pop('vrf', None)
-                kwargs['vrf'] = vrf if vrf else kwargs.get('vrf')
+                dvrf = db_credentials.pop('vrf', None)
+                vrf = dvrf if dvrf else vrf
                 credentials = db_credentials
             else:
                 err_msg = f'failed to get credentials from db'
@@ -80,30 +80,49 @@ class StatsFetcher(BaseWorker):
             Log.error(err_msg)
             return self.report_task_failure(err_msg)
 
+        Log.debug(f'Get flows: vendor: "{self.vendor}", IPv4 vrf: "{vrf}"')
+        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv4')
+        if not pres:
+            Log.error(f'Failed to get flows for IPv4: {pres}')
+            return self.report_task_failure()
+
+        Log.debug(f'Get flows: vendor: "{self.vendor}", IPv6 vrf: "{vrf}"')
+        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv6')
+        if not pres:
+            Log.error(f'Failed to get flows for IPv6: {pres}')
+            return self.report_task_failure()
+
+        end_time = datetime.datetime.utcnow()
+        Log.debug(f'finished iteration successfully - duration: "{(end_time-start_time).total_seconds():.2f}" seconds')
+
+        return self.report_task_success()
+
+    def _perform_flows(self, command_worker, credentials, vrf, stats_type):
+        Log.debug(f'Perform for {stats_type}, {credentials.get("user")}@{credentials.get("host")}')
+
         router_flows = self.get_flows_from_router(command_worker=command_worker,
                                                   credentials=credentials,
                                                   flow_number=True,
-                                                  vrf=kwargs.get('vrf'))
+                                                  vrf=vrf,
+                                                  stats_type=stats_type)
         if router_flows is None:
             err_msg = f'an error occurred while trying to get flows from the router'
             Log.warning(err_msg)
             return self.report_task_failure(err_msg)
-
         try:
             result = self.wrap_result(success=True,
                                       payload=router_flows,
                                       cur_time=True)
+            Log.debug(f'Flows res for {stats_type}: {result}')
         except Exception as ex:
             logged = f'logged - ' if isinstance(ex, LException) else ''
             err_msg = f'failed to wrap result to api - {logged}error: "{str(ex)}"'
             Log.exception(err_msg)
             return self.report_task_failure(err_msg)
-
         params = dict(request_type=REQUEST_TYPE.SEND_STATS,
                       identifier=self._identifier,
                       payload=result)
         params.update({k: v for k, v in self.args.items() if k not in params})
-
         try:
             result = send_request(config=self.args, **params)
         except Exception as ex:
@@ -112,10 +131,9 @@ class StatsFetcher(BaseWorker):
             Log.exception(err_msg)
             self.set_failed_api_call()
             return self.report_task_failure(err_msg)
+
         self.set_success_api_call()
 
-        end_time = datetime.datetime.utcnow()
-        Log.debug('finished iteration successfully')
         return self.report_task_success()
 
     @staticmethod
@@ -169,3 +187,47 @@ class StatsFetcher(BaseWorker):
         except Exception as ex:
             Log.exception(f'failed to get credentials from db - "{str(ex)}"')
             return None
+
+def main():
+    # Set the default values
+    MDB_HOST = '172.17.1.153'
+    MDB_PORT = 27017
+    MDB_USER = 'admin'
+    MDB_AUTH_SOURCE = 'admin'
+
+    # Parse the command line arguments
+    args = argparse.ArgumentParser()
+    args.add_argument('--host', dest='host', default=MDB_HOST)
+    args.add_argument('--port', dest='port', default=MDB_PORT)
+    args.add_argument('--user', dest='user', default=MDB_USER)
+    args.add_argument('--authSource', dest='authSource', default=MDB_AUTH_SOURCE)
+    args.add_argument('--password', dest='password', required=True, default=None)
+    # args identifier
+    args.add_argument('-i', '--identifier', dest='identifier', required=True, default=None)
+    # args VRF
+    args.add_argument('--vrf', dest='vrf', default=None)
+    # args cloud
+    args.add_argument('-c', '--cloud', dest='cloud', default=True)
+    # args verbose
+    args.add_argument('-v', '--verbose', dest='verbose', default=True)
+
+    args = args.parse_args()
+    # convert args to dict
+    args_dict = vars(args)
+    args_dict['mongodb'] = dict(
+        host=args_dict.pop('host'),
+        port=args_dict.pop('port'),
+        username=args_dict.pop('user'),
+        authSource=args_dict.pop('authSource'),
+        password=args_dict.pop('password')
+    )
+
+    try:
+        worker = StatsFetcher()
+        worker.work(credentials=None, **args_dict)
+    except Exception as ex:
+        Log.exception(f'failed to run the worker - "{str(ex)}"')
+
+# main
+if __name__ == '__main__':
+    main()

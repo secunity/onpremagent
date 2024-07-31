@@ -173,7 +173,10 @@ class SshCommandWorker(CommandWorker, ABC):
         finally:
             connection.close()
 
-    def _prepare_stats_command(self, interface_name=None):
+    def _prepare_stats_command(self, interface_name=None, ip_type='IPv4'):
+        if ip_type == 'IPv6':
+            self._get_stats_from_router_command = self._get_stats_from_router_command.replace(
+                "ipv4", "ipv6") if self._get_stats_from_router_command else None
         return self._get_stats_from_router_command
 
     def get_flows_from_router(self,
@@ -181,7 +184,8 @@ class SshCommandWorker(CommandWorker, ABC):
                               **kwargs) -> List[str]:
         if not credentials:
             credentials = copy.deepcopy(self.credentials)
-        if self._prepare_stats_command(kwargs.get('vrf')):
+        if self._prepare_stats_command(kwargs.get('vrf'), kwargs.get('stats_type', 'IPv4')):
+            Log.debug(f'SSH command: "{self._get_stats_from_router_command}"')
             result = self.execute_cli(command=self._get_stats_from_router_command,
                                       credentials=credentials, **kwargs)
             return result
