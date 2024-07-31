@@ -266,7 +266,8 @@ class BaseWorker(ABC):
                                                          resource=resource,
                                                          filter_by_prefix=True,
                                                          flow_number=flow_number,
-                                                         vrf=kwargs.get('vrf'))
+                                                         vrf=kwargs.get('vrf'),
+                                                         stats_type=kwargs.get('stats_type', 'IPv4'))
         except Exception as ex:
             logged = f'logged - ' if isinstance(ex, LException) else ''
             Log.exception(f'failed to get flows from the router - {logged}error: {str(ex)}')
