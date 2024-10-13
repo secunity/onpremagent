@@ -32,7 +32,7 @@ class MikrotikCommandWorker(CommandWorker):
         KEYS.USER: 'admin',
         KEYS.PASSWORD: '',
 
-        KEYS.RESOURCE_PATH: '/ip/firewall/filter',
+        KEYS.RESOURCE_PATH: '/ip/firewall/raw',
         KEYS.FLOW_KEYS: {
             KEYS.FLOW_ID: 'id',
             KEYS.COMMENT: 'comment'
