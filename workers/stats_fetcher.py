@@ -81,13 +81,13 @@ class StatsFetcher(BaseWorker):
             return self.report_task_failure(err_msg)
 
         Log.debug(f'Get flows: vendor: "{self.vendor}", IPv4 vrf: "{vrf}"')
-        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv4')
+        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv4', **kwargs)
         if not pres:
             Log.error(f'Failed to get flows for IPv4: {pres}')
             return self.report_task_failure()
 
         Log.debug(f'Get flows: vendor: "{self.vendor}", IPv6 vrf: "{vrf}"')
-        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv6')
+        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv6', **kwargs)
         if not pres:
             Log.error(f'Failed to get flows for IPv6: {pres}')
             return self.report_task_failure()
@@ -97,14 +97,15 @@ class StatsFetcher(BaseWorker):
 
         return self.report_task_success()
 
-    def _perform_flows(self, command_worker, credentials, vrf, stats_type):
+    def _perform_flows(self, command_worker, credentials, vrf, stats_type, **kwargs):
         Log.debug(f'Perform for {stats_type}, {credentials.get("user")}@{credentials.get("host")}')
 
         router_flows = self.get_flows_from_router(command_worker=command_worker,
                                                   credentials=credentials,
                                                   flow_number=True,
                                                   vrf=vrf,
-                                                  stats_type=stats_type)
+                                                  stats_type=stats_type,
+                                                  **kwargs)
         if router_flows is None:
             err_msg = f'an error occurred while trying to get flows from the router'
             Log.warning(err_msg)
