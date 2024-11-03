@@ -92,6 +92,7 @@ class MikrotikCommandWorker(CommandWorker):
     def get_resource(self,
                      credentials: Dict[str, object],
                      resource_path: Optional[str] = None,
+                     plaintext_login: Optional[bool] = True,
                      **kwargs):  #  RouterOsResource
         credentials = self.parse_credentials(credentials)
         if not resource_path:
@@ -107,7 +108,7 @@ class MikrotikCommandWorker(CommandWorker):
             connection = pool(host=credentials['host'],
                               username=credentials['user'],
                               password=credentials['password'],
-                              plaintext_login=True)
+                              plaintext_login=plaintext_login)
         except Exception as ex:
             Log.exception_raise(f'failed to initialize connection to router: "{str(ex)}"', ex=ex)
         try:
@@ -508,10 +509,11 @@ class MikrotikCommandWorker(CommandWorker):
                               filter_prefix: Optional[str] = None,
                               lock: Optional[bool] = True,
                               flow_number: Optional[bool] = True,
+                              plaintext_login: Optional[bool] = True,
                               **kwargs) -> List[Dict[str, Any]]:
         if not resource:
             credentials: Dict[str, object] = self.parse_credentials(credentials)
-            resource = self.initialize_connection_and_api_connector(credentials=credentials)
+            resource = self.initialize_connection_and_api_connector(credentials=credentials, plaintext_login=plaintext_login)
 
         def _send_request():
             try:
