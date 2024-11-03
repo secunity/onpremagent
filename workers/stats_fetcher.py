@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 from common.api_secunity import send_request, REQUEST_TYPE
 from common.consts import PROGRAM
 from common.logs import Log, LException
+from common.sshutils import get_ssh_credentials_from_config
 from common.utils import is_bool
 from workers.bases import BaseWorker
 
@@ -58,6 +59,9 @@ class StatsFetcher(BaseWorker):
     def work(self, credentials: Optional[Dict[str, Any]] = None, *args, **kwargs):
         Log.debug('starting a new iteration')
         start_time = datetime.datetime.utcnow()
+
+        if credentials is None:
+            credentials = get_ssh_credentials_from_config(self._args)
 
         if not self._pre_validate_work_params(**kwargs):
             return self.report_task_failure()
