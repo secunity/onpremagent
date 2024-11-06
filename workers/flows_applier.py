@@ -41,7 +41,7 @@ class BaseFlowsApplier(BaseWorker, ABC):
             return None, None
 
         try:
-            resource = command_worker.get_resource(credentials=credentials)
+            resource = command_worker.get_resource(credentials=credentials, **kwargs)
         except Exception as ex:
             logged = f'logged - ' if isinstance(ex, LException) else ''
             Log.exception(f'failed to init command worker resource - {logged}error: "{str(ex)}"')
@@ -71,7 +71,7 @@ class BaseFlowsApplier(BaseWorker, ABC):
             return self.report_task_failure()
         flow_type = _flow_type
 
-        command_worker, resource = self.init_command_worker_and_resource(credentials=credentials)
+        command_worker, resource = self.init_command_worker_and_resource(credentials=credentials, **kwargs)
         if not command_worker:
             Log.error(f'failed to init command worker and resource')
             self.set_failed_router_call()
