@@ -271,19 +271,22 @@ class BaseWorker(ABC):
                                                          vrf=kwargs.get('vrf'),
                                                          stats_type=kwargs.get('stats_type', 'IPv4'))
         except paramiko.ssh_exception.AuthenticationException as cto_ex:
-            Log.info(f'DDDDDD: {str(type(cto_ex))}')
             logged = f'logged - ' if isinstance(cto_ex, LException) else ''
             Log.error(f'failed to get flows from the router - {logged}error: {str(cto_ex)}')
+            time_to_sleep: int = 60 * 10
+            Log.error(f'Authentication Error - Sleep for {str(time_to_sleep)} seconds')
+            time.sleep(time_to_sleep)
             self.set_failed_router_call()
             return None
         except paramiko.ssh_exception.NoValidConnectionsError as ex:
-            Log.info(f'CCCCCC: {str(type(ex))}')
+            time_to_sleep: int = 60
+            Log.error(f'No Connection Error - Sleep for {str(time_to_sleep)} seconds')
+            time.sleep(time_to_sleep)
             logged = f'logged - ' if isinstance(ex, LException) else ''
             Log.error(f'failed to get flows from the router - {logged}error: {str(ex)}')
             self.set_failed_router_call()
             return None
         except Exception as ex:
-            Log.info(f'BBBBBB: {str(type(ex))}')
             logged = f'logged - ' if isinstance(ex, LException) else ''
             Log.error(f'failed to get flows from the router - {logged}error: {str(ex)}')
             self.set_failed_router_call()
