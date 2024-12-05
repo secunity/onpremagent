@@ -173,6 +173,7 @@ class SshCommandWorker(CommandWorker, ABC):
             return exec_command(connection, command, **kwargs)
         except paramiko.ssh_exception.AuthenticationException as cto_ex:
             time_to_sleep: int = 60 * 10
+            time_to_sleep: int = 6
             Log.error(f'Authentication Error - Sleep for {str(time_to_sleep)} seconds')
             time.sleep(time_to_sleep)
             raise
