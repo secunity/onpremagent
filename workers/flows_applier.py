@@ -4,7 +4,7 @@ from abc import ABC
 
 from command_workers.mikrotik import MikrotikCommandWorker
 from common.consts import PROGRAM
-from common.enums import FLOW_TYPE
+from common.enums import FLOW_TYPE, VENDOR
 from common.flows import default_callback__get_flow_status
 from common.logs import Log, LException
 from workers.bases import BaseWorker
@@ -38,6 +38,10 @@ class BaseFlowsApplier(BaseWorker, ABC):
         except Exception as ex:
             logged = f'logged - ' if isinstance(ex, LException) else ''
             Log.exception(f'failed to init command worker - {logged}error: "{str(ex)}"')
+            return None, None
+
+        if self.vendor != VENDOR.MIKROTIK:
+            Log.error(f'Current process not running with vendor "{self.vendor}"')
             return None, None
 
         try:
