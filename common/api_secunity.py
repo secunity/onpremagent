@@ -152,7 +152,7 @@ def send_request(request_type: Union[REQUEST_TYPE, str],
         success = 200 <= response.status_code <= 210
     except Exception as ex:
         Log.error(f'failed to send message {request_str}. ex: "{str(ex)}"')
-        Log.exception(f'AAAAAAA: {str(type(ex))}')
+        Log.error(f'AAAAAAA: {str(type(ex))}')
         # raise
         return None
     if not success:
