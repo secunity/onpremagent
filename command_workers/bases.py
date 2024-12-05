@@ -171,7 +171,8 @@ class SshCommandWorker(CommandWorker, ABC):
 
             return exec_command(connection, command, **kwargs)
         finally:
-            connection.close()
+            if isinstance(connection, paramiko.SSHClient):
+                connection.close()
 
     def _prepare_stats_command(self, interface_name=None, ip_type='IPv4'):
         if ip_type == 'IPv6':
