@@ -154,8 +154,8 @@ class SshCommandWorker(CommandWorker, ABC):
         if not command and not exec_command:
             Log.error_raise('either "command" or "exec_command" must be specified')
 
-        connection = self.generate_connection(credentials, **kwargs)
         try:
+            connection = self.generate_connection(credentials, **kwargs)
             if not exec_command:
                 if not command.endswith('\n'):
                     command = f'{command}\n'
