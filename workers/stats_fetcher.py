@@ -52,7 +52,7 @@ class StatsFetcher(BaseWorker):
             return result
         except Exception as e:
             err_msg = f'failed report_task_failure - "{str(e)}"'
-            Log.exception(err_msg)
+            Log.error(err_msg)
             return None
 
     def work(self, credentials: Optional[Dict[str, Any]] = None, *args, **kwargs):
@@ -131,7 +131,7 @@ class StatsFetcher(BaseWorker):
         except Exception as ex:
             logged = f'logged - ' if isinstance(ex, LException) else ''
             err_msg = f'failed to send stats to BE api - {logged}error: "{str(ex)}"'
-            Log.exception(err_msg)
+            Log.error(err_msg)
             self.set_failed_api_call()
             return self.report_task_failure(err_msg)
 
