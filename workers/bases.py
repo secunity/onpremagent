@@ -269,6 +269,7 @@ class BaseWorker(ABC):
                                                          vrf=kwargs.get('vrf'),
                                                          stats_type=kwargs.get('stats_type', 'IPv4'))
         except Exception as ex:
+            Log.info(f'BBBBBB: {str(type(ex))}')
             logged = f'logged - ' if isinstance(ex, LException) else ''
             Log.error(f'failed to get flows from the router - {logged}error: {str(ex)}')
             self.set_failed_router_call()
