@@ -270,7 +270,7 @@ class BaseWorker(ABC):
                                                          stats_type=kwargs.get('stats_type', 'IPv4'))
         except Exception as ex:
             logged = f'logged - ' if isinstance(ex, LException) else ''
-            Log.exception(f'failed to get flows from the router - {logged}error: {str(ex)}')
+            Log.error(f'failed to get flows from the router - {logged}error: {str(ex)}')
             self.set_failed_router_call()
             return None
 
