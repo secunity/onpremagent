@@ -98,7 +98,10 @@ class StatsFetcher(BaseWorker):
         return self.report_task_success()
 
     def _perform_flows(self, command_worker, credentials, vrf, stats_type):
-        Log.debug(f'Perform for {stats_type}, {credentials.get("user")}@{credentials.get("host")}')
+        if credentials is not None:
+            Log.debug(f'Perform for {stats_type}, {credentials.get("user")}@{credentials.get("host")}')
+        else:
+            Log.debug(f'Perform for {stats_type}')
 
         router_flows = self.get_flows_from_router(command_worker=command_worker,
                                                   credentials=credentials,
