@@ -1,4 +1,5 @@
 import copy
+import time
 from abc import ABC, abstractmethod
 from typing import Optional, Union, Dict, Protocol, List, Callable, TypeVar
 import paramiko
@@ -170,6 +171,11 @@ class SshCommandWorker(CommandWorker, ABC):
                 exec_command = _exec_command
 
             return exec_command(connection, command, **kwargs)
+        except paramiko.ssh_exception.AuthenticationException as cto_ex:
+            time_to_sleep: int = 60 * 10
+            Log.error(f'Authentication Error - Sleep for {str(time_to_sleep)} seconds')
+            time.sleep(time_to_sleep)
+            raise
         finally:
             if isinstance(connection, paramiko.SSHClient):
                 connection.close()
