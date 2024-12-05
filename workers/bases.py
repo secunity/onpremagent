@@ -4,6 +4,8 @@ import datetime
 import time
 from typing import Union, Optional, Dict, Callable, Any, Tuple, List
 
+import paramiko.ssh_exception
+
 try:
     import jstyleson as json
 except:
@@ -268,6 +270,12 @@ class BaseWorker(ABC):
                                                          flow_number=flow_number,
                                                          vrf=kwargs.get('vrf'),
                                                          stats_type=kwargs.get('stats_type', 'IPv4'))
+        except paramiko.ssh_exception.NoValidConnectionsError as ex:
+            Log.info(f'CCCCCC: {str(type(ex))}')
+            logged = f'logged - ' if isinstance(ex, LException) else ''
+            Log.error(f'failed to get flows from the router - {logged}error: {str(ex)}')
+            self.set_failed_router_call()
+            return None
         except Exception as ex:
             Log.info(f'BBBBBB: {str(type(ex))}')
             logged = f'logged - ' if isinstance(ex, LException) else ''
