@@ -41,7 +41,9 @@ class BaseFlowsApplier(BaseWorker, ABC):
             return None, None
 
         if self.vendor != VENDOR.MIKROTIK:
-            Log.error(f'Current process not running with vendor "{self.vendor}"')
+            Log.error(f'Current process not running with vendor "{self.vendor}"'
+                      f'Please stop this process')
+
             return None, None
 
         try:
