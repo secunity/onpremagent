@@ -6,6 +6,7 @@ class VENDOR:
     JUNIPER = 'juniper'
     ARISTA = 'arista'
     MIKROTIK = 'mikrotik'
+    HUAWEI = 'huawei'
 
     DEFAULT_VENDOR = CISCO
 
@@ -14,6 +15,7 @@ class VENDOR:
         'JUNIPER': JUNIPER,
         'ARISTA': ARISTA,
         'MIKROTIK': MIKROTIK,
+        'HUAWEI' : HUAWEI
     }
 
     @classmethod
@@ -27,7 +29,7 @@ class VENDOR:
             raise ValueError(f'invalid vendor: "{str(vendor)}"')
         return result
 
-    ALL = (CISCO, JUNIPER, ARISTA, MIKROTIK)
+    ALL = (CISCO, JUNIPER, ARISTA, MIKROTIK, HUAWEI)
 
 
 class ACTION_FLOW_STATUS:

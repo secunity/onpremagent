@@ -22,6 +22,9 @@ def get_command_worker_class(vendor: Union[VENDOR, str]) -> TCommandWorker:
         elif vendor == VENDOR.JUNIPER:
             from command_workers.juniper import JuniperCommandWorker
             cls = JuniperCommandWorker
+        elif vendor == VENDOR.HUAWEI:
+            from command_workers.huawei import HuaweiCommandWorker
+            cls = HuaweiCommandWorker
         elif vendor == VENDOR.ARISTA:
             from command_workers.arista import AristaCommandWorker
             cls = AristaCommandWorker
