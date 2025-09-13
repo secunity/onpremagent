@@ -1,4 +1,5 @@
 import copy
+import time
 from abc import ABC, abstractmethod
 from typing import Optional, Union, Dict, Protocol, List, Callable, TypeVar
 import paramiko
@@ -153,9 +154,9 @@ class SshCommandWorker(CommandWorker, ABC):
                     **kwargs) -> List[str]:
         if not command and not exec_command:
             Log.error_raise('either "command" or "exec_command" must be specified')
-
-        connection = self.generate_connection(credentials, **kwargs)
+        connection = None
         try:
+            connection = self.generate_connection(credentials, **kwargs)
             if not exec_command:
                 if not command.endswith('\n'):
                     command = f'{command}\n'
@@ -170,8 +171,14 @@ class SshCommandWorker(CommandWorker, ABC):
                 exec_command = _exec_command
 
             return exec_command(connection, command, **kwargs)
+        except paramiko.ssh_exception.AuthenticationException as cto_ex:
+            time_to_sleep: int = 60 * 10
+            Log.error(f'Authentication Error - Sleep for {str(time_to_sleep)} seconds')
+            time.sleep(time_to_sleep)
+            raise
         finally:
-            connection.close()
+            if isinstance(connection, paramiko.SSHClient):
+                connection.close()
 
     def _prepare_stats_command(self, interface_name=None, ip_type='IPv4'):
         if ip_type == 'IPv6':

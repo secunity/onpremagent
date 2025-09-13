@@ -151,7 +151,7 @@ def send_request(request_type: Union[REQUEST_TYPE, str],
         response: requests.Response = func(**func_params)
         success = 200 <= response.status_code <= 210
     except Exception as ex:
-        Log.exception(f'failed to send message {request_str}. ex: "{str(ex)}"')
+        Log.error(f'failed to send message {request_str}. ex: "{str(ex)}"')
         return None
     if not success:
         Log.error("API function was not successfully performed")

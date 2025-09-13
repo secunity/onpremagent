@@ -113,7 +113,7 @@ class MikrotikCommandWorker(CommandWorker):
         try:
             api = connection.get_api()
         except Exception as ex:
-            Log.exception_raise(f'failed to initialize router API connector: "{str(ex)}"', ex=ex)
+            Log.error_raise(f'failed to initialize router API connector: "{str(ex)}"')
 
         try:
             resource = api.get_resource(resource_path)
