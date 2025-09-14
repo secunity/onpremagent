@@ -25,11 +25,16 @@ class HuaweiCommandWorker(SshCommandWorker):
 
         connection = self.generate_connection(credentials, **kwargs)
         try:
-            _, stdout, stderr = connection.exec_command(self._get_stats_from_router_command.format(vpn_name))
+            # Build the command string explicitly
+            cmd = self._get_stats_from_router_command.format(vpn_name)
+            self.logger.debug(f'SSH command: "{cmd}"')  # <- so you see the real one
+            _, stdout, stderr = connection.exec_command(cmd)
             result = stdout.readlines()
 
             for idx in re.findall(r"ReIndex\s*:\s*(\d+)", '\n'.join(result)):
-                _, stdout, stderr = connection.exec_command(self._get_stats_for_sig.format(vpn_name, idx))
+                sig_cmd = self._get_stats_for_sig.format(vpn_name, idx)
+                self.logger.debug(f'SSH command: "{sig_cmd}"')
+                _, stdout, stderr = connection.exec_command(sig_cmd)
                 result.extend(stdout.readlines())
 
             return [line.rstrip('\r\n') for line in result]
