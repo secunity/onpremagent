@@ -15,7 +15,6 @@ class HuaweiCommandWorker(SshCommandWorker):
         return VENDOR.HUAWEI
 
     def _prepare_stats_command(self, interface_name=None, ip_type='IPv4'):
-        # For Huawei, we need different commands for IPv4 vs IPv6
         if ip_type == 'IPv6':
             self._get_stats_from_router_command = 'display bgp flow vpnv6 vpn-instance {} routing-table'
             self._get_stats_for_sig = 'display flowspec vpnv6 vpn-instance {} statistics {}'
@@ -34,14 +33,11 @@ class HuaweiCommandWorker(SshCommandWorker):
 
         connection = self.generate_connection(credentials, **kwargs)
         try:
-            # Format the command with the VRF name
             formatted_command = self._get_stats_from_router_command.format(vpn_name)
             _, stdout, stderr = connection.exec_command(formatted_command)
             result = stdout.readlines()
 
-            # Extract ReIndex values and get statistics for each
             for idx in re.findall(r"ReIndex\s*:\s*(\d+)", '\n'.join(result)):
-                # Format the stats command with VRF name and index
                 stats_command = self._get_stats_for_sig.format(vpn_name, idx)
                 _, stdout, stderr = connection.exec_command(stats_command)
                 result.extend(stdout.readlines())
@@ -49,3 +45,26 @@ class HuaweiCommandWorker(SshCommandWorker):
             return [line.rstrip('\r\n') for line in result]
         finally:
             connection.close()
+
+    def get_flows_from_router(self,
+                              credentials: Optional[Dict[str, object]] = None,
+                              **kwargs) -> List[str]:
+        if not credentials:
+            credentials = self.credentials.copy() if hasattr(self, 'credentials') else {}
+
+        ip_type = kwargs.get('ip_type', 'IPv4')
+        self._prepare_stats_command(ip_type=ip_type)
+
+        if self._get_stats_from_router_command:
+            vpn_name = kwargs.get('vrf', self._default_vpn_name)
+            formatted_command = self._get_stats_from_router_command.format(vpn_name)
+            self.logger.debug(f'SSH command: "{formatted_command}"')
+
+            result = self.execute_cli(
+                command=self._get_stats_from_router_command,
+                credentials=credentials,
+                **kwargs
+            )
+            return result
+
+        raise NotImplementedError()
