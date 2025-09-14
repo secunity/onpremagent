@@ -26,7 +26,7 @@ class HuaweiCommandWorker(SshCommandWorker):
         connection = self.generate_connection(credentials, **kwargs)
         try:
             # Build the command string explicitly
-            cmd = self._get_stats_from_router_command.format(vpn_name)
+            cmd = self._get_stats_from_router_command.format(vpn_name or self._default_vpn_name)
             self.logger.debug(f'SSH command: "{cmd}"')  # <- so you see the real one
             _, stdout, stderr = connection.exec_command(cmd)
             result = stdout.readlines()
