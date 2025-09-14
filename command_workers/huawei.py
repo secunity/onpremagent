@@ -6,7 +6,6 @@ from common.enums import VENDOR
 
 
 class HuaweiCommandWorker(SshCommandWorker):
-
     _default_vpn_name = 'LAB-VPN'
 
     _get_stats_from_router_command = 'display bgp flow vpnv4 vpn-instance {} routing-table'
@@ -28,10 +27,35 @@ class HuaweiCommandWorker(SshCommandWorker):
             _, stdout, stderr = connection.exec_command(self._get_stats_from_router_command.format(vpn_name))
             result = stdout.readlines()
 
-            for idx in re.findall(r"ReIndex\s*:\s*(\d+)", '\n'.join(result)):
-                _, stdout, stderr = connection.exec_command(self._get_stats_for_sig.format(vpn_name, idx))
-                result.extend(stdout.readlines())
+            connection.close()
+            connection = self.generate_connection(credentials, **kwargs)
 
-            return [line.rstrip('\r\n') for line in result]
+            for idx in re.findall(r"ReIndex\s*:\s*(\d+)", '\n'.join(result)):
+                try:
+                    stdin, stdout, stderr = connection.exec_command(self._get_stats_for_sig.format(vpn_name, idx))
+                    for _ in range(10):
+                        stdin.write('\n')
+                    stdin.flush()
+                    result_idx = stdout.readlines()
+                    for s in result_idx:
+                        print("line", s)
+                        result.append(re.sub(r"\s*---- More ----\x1b\[16D\s*\x1b\[16D", "", s))
+                except Exception as er:
+                    print(f"error idx {idx}: {er}")
+
+            output = [line.rstrip('\r\n') for line in result]
+
+            print(output)
+
+            return output
         finally:
             connection.close()
+
+
+
+
+
+
+
+
+
