@@ -27,11 +27,11 @@ class HuaweiCommandWorker(SshCommandWorker):
             _, stdout, stderr = connection.exec_command(self._get_stats_from_router_command.format(vpn_name))
             result = stdout.readlines()
 
-            connection.close()
-            connection = self.generate_connection(credentials, **kwargs)
-
             for idx in re.findall(r"ReIndex\s*:\s*(\d+)", '\n'.join(result)):
                 try:
+                    connection.close()
+                    connection = self.generate_connection(credentials, **kwargs)
+
                     _, stdout, stderr = connection.exec_command(self._get_stats_for_sig.format(vpn_name, idx))
                     result += stdout.readlines()
                 except Exception as er:
