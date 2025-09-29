@@ -52,7 +52,7 @@ class StatsFetcher(BaseWorker):
             return result
         except Exception as e:
             err_msg = f'failed report_task_failure - "{str(e)}"'
-            Log.exception(err_msg)
+            Log.error(err_msg)
             return None
 
     def work(self, credentials: Optional[Dict[str, Any]] = None, *args, **kwargs):
@@ -98,7 +98,10 @@ class StatsFetcher(BaseWorker):
         return self.report_task_success()
 
     def _perform_flows(self, command_worker, credentials, vrf, stats_type):
-        Log.debug(f'Perform for {stats_type}, {credentials.get("user")}@{credentials.get("host")}')
+        if credentials is not None:
+            Log.debug(f'Perform for {stats_type}, {credentials.get("user")}@{credentials.get("host")}')
+        else:
+            Log.debug(f'Perform for {stats_type}')
 
         router_flows = self.get_flows_from_router(command_worker=command_worker,
                                                   credentials=credentials,
@@ -128,7 +131,7 @@ class StatsFetcher(BaseWorker):
         except Exception as ex:
             logged = f'logged - ' if isinstance(ex, LException) else ''
             err_msg = f'failed to send stats to BE api - {logged}error: "{str(ex)}"'
-            Log.exception(err_msg)
+            Log.error(err_msg)
             self.set_failed_api_call()
             return self.report_task_failure(err_msg)
 

@@ -1,4 +1,8 @@
+import re
+import time
 from typing import Dict, Any
+
+import paramiko
 
 from common.configs import CONFIG_KEY
 from common.consts import SSH_PORT
@@ -33,3 +37,24 @@ def get_ssh_credentials_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         result['username'] = result['user']
     return result
 
+
+def read_and_wait(shell: paramiko.Channel, prompt: re.Pattern) -> str:
+    full_output = []
+
+    while True:
+        if shell.recv_ready():
+            output = shell.recv(1024).decode("utf-8")
+            full_output.append(output)
+
+            if prompt.search(output):
+                break
+
+        if shell.exit_status_ready():
+            break
+
+        if shell.closed or shell.eof_received or not shell.active:
+            break
+
+        time.sleep(0.1)
+
+    return "".join(full_output)

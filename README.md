@@ -16,15 +16,15 @@ The name of the config file must be "secunity.conf"
 
 The config file consists of the following ttributes:
 
-| Name       | Mandatory | Description                                                              | Default |
-|------------|-----------|--------------------------------------------------------------------------|---------|
-| identifier | V         | Unique network device identifier                                         |         |
-| host       | V         | Network device hostname/ip                                               |         |
-| port       |           | Port to use for SSH session                                              | 22      |
-| vendor     |           | The network device vendor.<br/>Options: cisco, juniper, arista, mikrotik | cisco   |
-| username   | V         | Username to use for SSH session                                          |         |
-| password   | V         | Password to use for SSH session     |         |
-| verbose   |           | Indicates whether to perform verbose logging                                   | false      |
+| Name       | Mandatory | Description                                                                      | Default |
+|------------|-----------|----------------------------------------------------------------------------------|---------|
+| identifier | V         | Unique network device identifier                                                 |         |
+| host       | V         | Network device hostname/ip                                                       |         |
+| port       |           | Port to use for SSH session                                                      | 22      |
+| vendor     |           | The network device vendor.<br/>Options: cisco, juniper, arista, mikrotik, huawei | cisco   |
+| username   | V         | Username to use for SSH session                                                  |         |
+| password   | V         | Password to use for SSH session                                                  |         |
+| verbose   |           | Indicates whether to perform verbose logging                                     | false      |
 
 A sample config file:
 
