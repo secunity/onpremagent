@@ -14,4 +14,4 @@ COPY pyproject.toml uv.lock ./
 
 RUN uv sync --frozen
 
-COPY config.py mikrotik_controller.py ssh_controller.py ./
+COPY config.py mikrotik_controller.py ssh_controller.py mikrotik.sh ./
