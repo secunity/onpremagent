@@ -10,7 +10,6 @@ from typing import NotRequired, TypedDict
 
 import httpx
 import routeros_api
-from rich.logging import RichHandler
 from routeros_api.api_structure import StringField
 from routeros_api.exceptions import RouterOsApiError
 from routeros_api.resource import RouterOsResource
@@ -34,7 +33,7 @@ HEARTBEAT_MAX_TIMEOUT = timedelta(minutes=1)
 logger = logging.getLogger("mikrotik-controller")
 logger.setLevel(logging.INFO)
 
-console_handler = RichHandler()
+console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(
     logging.Formatter(

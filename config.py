@@ -1,8 +1,9 @@
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
-SECUNITY_API_URL = "https://api.secunity.io/fstats"
+SECUNITY_API_URL = f"{os.getenv('SECUNITY_API_URL', default='https://api.secunity.io')}/fstats"
 
 
 @dataclass
