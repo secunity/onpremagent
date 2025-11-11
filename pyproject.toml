@@ -8,8 +8,6 @@ dependencies = [
     "httpx>=0.28.1",
     "paramiko>=4.0.0",
     "pymongo>=4.15.3",
-    "requests>=2.32.5",
-    "rich>=14.2.0",
     "routeros-api>=0.21.0",
     "tenacity>=9.1.2",
 ]
