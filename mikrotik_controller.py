@@ -1,6 +1,7 @@
 import argparse
 import collections
 import logging
+import sys
 import threading
 import time
 from datetime import datetime, timedelta
@@ -33,7 +34,7 @@ HEARTBEAT_MAX_TIMEOUT = timedelta(minutes=1)
 logger = logging.getLogger("mikrotik-controller")
 logger.setLevel(logging.INFO)
 
-console_handler = logging.StreamHandler()
+console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(
     logging.Formatter(

@@ -1,6 +1,7 @@
 import argparse
 import logging
 import re
+import sys
 import time
 from datetime import timedelta
 from enum import IntEnum
@@ -23,7 +24,7 @@ HTTP_TIMEOUT = 10.0
 logger = logging.getLogger("ssh-controller")
 logger.setLevel(logging.INFO)
 
-console_handler = logging.StreamHandler()
+console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(
     logging.Formatter("%(asctime)s - %(name)s - %(levelname)8s - %(message)s")
