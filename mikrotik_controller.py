@@ -84,6 +84,7 @@ class MikrotikController:
 
         self.connection = routeros_api.RouterOsApiPool(
             host=config.host,
+            port=config.port,
             username=config.username,
             password=config.password,
             plaintext_login=config.plaintext_login,

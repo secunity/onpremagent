@@ -17,9 +17,9 @@ class MongoDBConfig:
 @dataclass
 class Config:
     identifier: str
+    vendor: str
     host: str | None = None
-    port: int = 22
-    vendor: str | None = None
+    port: int | None = None
     username: str | None = None
     password: str | None = None
     vrf: str | None = None
@@ -36,10 +36,19 @@ def read_config_file(path: Path) -> Config:
         if data.get("cloud"):
             pass
 
+        vendor = data.get("vendor")
+
+        port = data.get("port")
+        if port is None:
+            if vendor == "mikrotik":
+                port = 8728  # Default MikroTik API port
+            else:
+                port = 22  # Default SSH port for other vendors
+
         return Config(
             identifier=data["identifier"],
             host=data.get("host"),
-            port=data.get("port", 22),
+            port=port,
             vendor=data.get("vendor"),
             vrf=data.get("vrf"),
             username=data.get("username"),
