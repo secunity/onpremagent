@@ -1,6 +1,6 @@
 FROM python:3.13-slim-bookworm
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates iputils-ping openssh-client telnet iputils-tracepath tcpdump netcat-traditional
 
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 
