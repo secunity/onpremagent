@@ -166,7 +166,10 @@ class MikrotikController:
         firewall_rules = inner(self.resource_ipv4)
 
         if self.config.enable_ipv6:
-            firewall_rules += inner(self.resource_ipv6)
+            try:
+                firewall_rules += inner(self.resource_ipv6)
+            except Exception as err:
+                logger.error("Fetching IPv6 firewall rules failed: %s", err)
 
         logger.info("Found %d firewall rules", len(firewall_rules))
 
