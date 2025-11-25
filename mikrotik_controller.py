@@ -180,11 +180,11 @@ class MikrotikController:
         }
 
         logger.info(
-            "Filtered %d firewall rules with prefix '%s': %s",
-            len(rules),
-            self.prefix,
-            rules,
+            "Filtered %d firewall rules with prefix '%s'", len(rules), self.prefix
         )
+
+        for i, rule in enumerate(rules):
+            logger.info("Rule [%d]: %s", i, rule)
 
         return rules
 
