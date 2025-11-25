@@ -163,7 +163,10 @@ class MikrotikController:
 
         logger.info("Getting firewall rules from MikroTik")
 
-        firewall_rules = inner(self.resource_ipv4) + inner(self.resource_ipv6)
+        firewall_rules = inner(self.resource_ipv4)
+
+        if self.config.enable_ipv6:
+            firewall_rules += inner(self.resource_ipv6)
 
         logger.info("Found %d firewall rules", len(firewall_rules))
 
@@ -190,7 +193,15 @@ class MikrotikController:
 
             flow["comment"] = f"{self.prefix}{key}"
 
-            self._get_resource(flow).add(**flow)
+            resource = self._get_resource(flow)
+
+            if resource is self.resource_ipv6 and not self.config.enable_ipv6:
+                logger.warning(
+                    "IPv6 is disabled in the configuration, skipping flow: %s", flow
+                )
+                return
+
+            resource.add(**flow)
 
             logger.info("Flow added successfully: %s", flow)
 
@@ -217,7 +228,15 @@ class MikrotikController:
             else:
                 logger.info("Removing flow %s from MikroTik: %s", key, flow)
 
-                self._get_resource(flow).remove(id=firewall_rules[key]["id"])
+                resource = self._get_resource(flow)
+
+                if resource is self.resource_ipv6 and not self.config.enable_ipv6:
+                    logger.warning(
+                        "IPv6 is disabled in the configuration, skipping flow: %s", flow
+                    )
+                    return
+
+                resource.remove(id=firewall_rules[key]["id"])
 
             logger.info("Flow removed successfully: %s", flow)
 
@@ -319,7 +338,16 @@ class MikrotikController:
 
         for value in firewall_rules_:
             try:
-                self._get_resource(value).remove(id=value["id"])
+                resource = self._get_resource(value)
+
+                if resource is self.resource_ipv6 and not self.config.enable_ipv6:
+                    logger.warning(
+                        "IPv6 is disabled in the configuration, skipping flow: %s",
+                        value,
+                    )
+                    continue
+
+                resource.remove(id=value["id"])
 
                 logger.info("Removed flow with ID: %s", value["id"])
             except RouterOsApiError as err:

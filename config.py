@@ -28,6 +28,8 @@ class Config:
     plaintext_login: bool = True
     encoding: str = "utf-8"
 
+    enable_ipv6: bool = False
+
 
 def read_config_file(path: Path) -> Config:
     with open(path) as file:
@@ -45,6 +47,8 @@ def read_config_file(path: Path) -> Config:
             else:
                 port = 22  # Default SSH port for other vendors
 
+        enable_ipv6 = data.get("enable_ipv6", False)
+
         return Config(
             identifier=data["identifier"],
             host=data.get("host"),
@@ -55,4 +59,5 @@ def read_config_file(path: Path) -> Config:
             password=data.get("password"),
             plaintext_login=data.get("plaintext_login", True),
             encoding=data.get("encoding", "utf-8"),
+            enable_ipv6=enable_ipv6,
         )
