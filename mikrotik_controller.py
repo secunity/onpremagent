@@ -16,7 +16,7 @@ from routeros_api.exceptions import RouterOsApiError
 from routeros_api.resource import RouterOsResource
 from tenacity import retry, wait_fixed
 
-from config import SECUNITY_API_URL, Config, read_config_file
+from config import SECUNITY_API_URL, CallableConfig, read_config_file
 
 FIREWALL_RULE_PREFIX = "SECUNITY_"
 
@@ -69,10 +69,12 @@ class MikrotikController:
 
     def __init__(
         self,
-        config: Config,
+        config_fn: CallableConfig,
         prefix: str = FIREWALL_RULE_PREFIX,
         http_timeout: float = HTTP_TIMEOUT,
     ):
+        config = config_fn()
+
         self.config = config
         self.prefix = prefix
 
@@ -362,7 +364,7 @@ class MikrotikController:
 
 
 @retry(wait=wait_fixed(SEND_STATISTIC_INTERVAL))
-def send_statistics_worker(config: Config) -> None:
+def send_statistics_worker(config: CallableConfig) -> None:
     controller = MikrotikController(config)
 
     while True:
@@ -371,7 +373,7 @@ def send_statistics_worker(config: Config) -> None:
 
 
 @retry(wait=wait_fixed(SYNC_FLOWS_INTERVAL))
-def sync_flows_worker(config: Config) -> None:
+def sync_flows_worker(config: CallableConfig) -> None:
     controller = MikrotikController(config)
 
     while True:
@@ -380,7 +382,7 @@ def sync_flows_worker(config: Config) -> None:
 
 
 @retry(wait=wait_fixed(WITHDRAW_FIREWALL_RULES_INTERVAL))
-def withdraw_firewall_rules_worker(config: Config) -> None:
+def withdraw_firewall_rules_worker(config: CallableConfig) -> None:
     controller = MikrotikController(config)
 
     while True:
@@ -402,9 +404,9 @@ def main():
     )
     args = parser.parse_args()
 
-    config = read_config_file(args.config)
+    config = lambda: read_config_file(args.config)
 
-    logger.info("Starting Mikrotik Controller with config: %s", config)
+    logger.info("Starting Mikrotik Controller")
 
     sync_flows_worker_thread = threading.Thread(
         target=sync_flows_worker,

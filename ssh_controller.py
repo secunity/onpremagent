@@ -12,7 +12,7 @@ from paramiko import AutoAddPolicy, Channel, SSHClient
 from paramiko.ssh_exception import SSHException
 from tenacity import retry, wait_fixed
 
-from config import SECUNITY_API_URL, Config, read_config_file
+from config import SECUNITY_API_URL, CallableConfig, read_config_file
 
 SEND_STATISTIC_INTERVAL = timedelta(seconds=60)
 
@@ -41,10 +41,12 @@ class INetFamily(IntEnum):
 class SSHController:
     def __init__(
         self,
-        config: Config,
+        config_fn: CallableConfig,
         ssh_timeout: float = SSH_TIMEOUT,
         http_timeout: float = HTTP_TIMEOUT,
     ) -> None:
+        config = config_fn()
+
         self.config = config
         self.ssh_timeout = ssh_timeout
 
@@ -244,7 +246,7 @@ class SSHController:
 
 
 @retry(wait=wait_fixed(SEND_STATISTIC_INTERVAL))
-def send_statistics_worker(config: Config) -> None:
+def send_statistics_worker(config: CallableConfig) -> None:
     controller = SSHController(config)
 
     while True:
@@ -259,9 +261,9 @@ def main():
     )
     args = parser.parse_args()
 
-    config = read_config_file(args.config)
+    config = lambda: read_config_file(args.config)
 
-    logger.info("Starting SSH Controller with config: %s", config)
+    logger.info("Starting SSH Controller")
 
     send_statistics_worker(config)
 
