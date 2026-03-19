@@ -187,8 +187,9 @@ class StatsFetcher(BaseWorker):
             vrf = acc_device.get('default_stats_interface_name')
 
             self._vendor = acc_device.get('vendor')
+            self._model = acc_device.get('model')
 
-            Log.debug(f'Credentials from DB - "{ssh_usr}@{ssh_host}:{ssh_port}", vrf: "{vrf}", vendor: "{self.vendor}"')
+            Log.debug(f'Credentials from DB - "{ssh_usr}@{ssh_host}:{ssh_port}", vrf: "{vrf}", vendor: "{self._vendor}", model: "{self._model}"')
 
             return dict(host=ssh_host, port=ssh_port, username=ssh_usr, password=ssh_pass, vrf=vrf) \
                 if ssh_usr and ssh_pass and ssh_host else None

@@ -10,7 +10,7 @@ class JuniperCommandWorker(SshCommandWorker):
     def vendor(self) -> VENDOR:
         return VENDOR.JUNIPER
 
-    def _prepare_stats_command(self, interface_name=None, ip_type='IPv4'):
+    def _prepare_stats_command(self, interface_name=None, ip_type='IPv4', model=None):
         if not interface_name:
             interface_name = self.__DEFAULT_INTERFACE_NAME__
         self._get_stats_from_router_command = self._get_stats_from_router_command.replace(

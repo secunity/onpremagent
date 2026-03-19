@@ -180,7 +180,7 @@ class SshCommandWorker(CommandWorker, ABC):
             if isinstance(connection, paramiko.SSHClient):
                 connection.close()
 
-    def _prepare_stats_command(self, interface_name=None, ip_type='IPv4'):
+    def _prepare_stats_command(self, interface_name=None, ip_type='IPv4', model=None):
         if ip_type == 'IPv6':
             self._get_stats_from_router_command = self._get_stats_from_router_command.replace(
                 "ipv4", "ipv6") if self._get_stats_from_router_command else None
@@ -191,7 +191,7 @@ class SshCommandWorker(CommandWorker, ABC):
                               **kwargs) -> List[str]:
         if not credentials:
             credentials = copy.deepcopy(self.credentials)
-        if self._prepare_stats_command(kwargs.get('vrf'), kwargs.get('stats_type', 'IPv4')):
+        if self._prepare_stats_command(kwargs.get('vrf'), kwargs.get('stats_type', 'IPv4'), kwargs.get('model')):
             Log.debug(f'SSH command: "{self._get_stats_from_router_command}"')
             result = self.execute_cli(command=self._get_stats_from_router_command,
                                       credentials=credentials, **kwargs)
