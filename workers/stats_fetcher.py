@@ -219,6 +219,7 @@ def main():
     args.add_argument('-c', '--cloud', dest='cloud', default=True)
     # args verbose
     args.add_argument('-v', '--verbose', dest='verbose', default=True)
+    args.add_argument('--model', dest='model', default=None)
 
     args = args.parse_args()
     # convert args to dict
