@@ -63,11 +63,14 @@ class StatsFetcher(BaseWorker):
             return self.report_task_failure()
 
         vrf = kwargs.get('vrf')
+        model = kwargs.get('model')
         if kwargs.get('cloud'):
             db_credentials = self._get_credentials_from_db(kwargs.get('mongodb'))
             if db_credentials:
                 dvrf = db_credentials.pop('vrf', None)
+                dmodel = db_credentials.pop('model', None)
                 vrf = dvrf if dvrf else vrf
+                model = dmodel if dmodel else model
                 credentials = db_credentials
             else:
                 err_msg = f'failed to get credentials from db'
@@ -80,14 +83,14 @@ class StatsFetcher(BaseWorker):
             Log.error(err_msg)
             return self.report_task_failure(err_msg)
 
-        Log.debug(f'Get flows: vendor: "{self.vendor}", IPv4 vrf: "{vrf}"')
-        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv4')
+        Log.debug(f'Get flows: vendor: "{self.vendor}", IPv4 vrf: "{vrf}", Model: "{model}"')
+        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv4', model=model)
         if not pres:
             Log.error(f'Failed to get flows for IPv4: {pres}')
             return self.report_task_failure()
 
-        Log.debug(f'Get flows: vendor: "{self.vendor}", IPv6 vrf: "{vrf}"')
-        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv6')
+        Log.debug(f'Get flows: vendor: "{self.vendor}", IPv6 vrf: "{vrf}", Model: "{model}"')
+        pres = self._perform_flows(command_worker, credentials, vrf, 'IPv6', model=model)
         if not pres:
             Log.error(f'Failed to get flows for IPv6: {pres}')
             return self.report_task_failure()
@@ -97,7 +100,7 @@ class StatsFetcher(BaseWorker):
 
         return self.report_task_success()
 
-    def _perform_flows(self, command_worker, credentials, vrf, stats_type):
+    def _perform_flows(self, command_worker, credentials, vrf, stats_type, model=None):
         if credentials is not None:
             Log.debug(f'Perform for {stats_type}, {credentials.get("user")}@{credentials.get("host")}')
         else:
@@ -107,7 +110,7 @@ class StatsFetcher(BaseWorker):
                                                   credentials=credentials,
                                                   flow_number=True,
                                                   vrf=vrf,
-                                                  stats_type=stats_type)
+                                                  stats_type=stats_type, model=model)
         if router_flows is None:
             err_msg = f'an error occurred while trying to get flows from the router'
             Log.warning(err_msg)

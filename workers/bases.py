@@ -274,7 +274,7 @@ class BaseWorker(ABC):
                                                          filter_by_prefix=True,
                                                          flow_number=flow_number,
                                                          vrf=kwargs.get('vrf'),
-                                                         stats_type=kwargs.get('stats_type', 'IPv4'))
+                                                         stats_type=kwargs.get('stats_type', 'IPv4'), model=kwargs.get('model'))
         except paramiko.ssh_exception.AuthenticationException as cto_ex:
             logged = f'logged - ' if isinstance(cto_ex, LException) else ''
             Log.error(f'failed to get flows from the router - {logged}error: {str(cto_ex)}')
