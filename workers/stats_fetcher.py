@@ -36,7 +36,7 @@ class StatsFetcher(BaseWorker):
         return PROGRAM.STATS_FETCHER
 
     _argparse_params = ('host', 'port', 'username', 'password', 'key_filename',
-                        'vendor', 'command_prefix', 'log', 'url', 'dump')
+                        'vendor', 'command_prefix', 'log', 'url', 'dump', 'model')
     _argparse_title: str = 'Secunity\'s On-Prem Statistics Fetcher'
 
     _seconds_interval = 60
