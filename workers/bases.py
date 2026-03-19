@@ -44,6 +44,7 @@ class BaseWorker(ABC):
         except Exception as ex:
             Log.warning(f'failed to parse vendor - error: "{str(ex)}"')
             self._vendor = ''
+        self._model = self._args.get('model')
         self._jobs = []
         self._command_worker = None
 
@@ -172,6 +173,10 @@ class BaseWorker(ABC):
     @property
     def vendor(self) -> VENDOR:
         return self._vendor
+
+    @property
+    def model(self) -> Optional[str]:
+        return self._model
 
     @property
     def identifier(self) -> str:

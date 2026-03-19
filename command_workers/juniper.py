@@ -13,6 +13,8 @@ class JuniperCommandWorker(SshCommandWorker):
     def _prepare_stats_command(self, interface_name=None, ip_type='IPv4', model=None):
         if not interface_name:
             interface_name = self.__DEFAULT_INTERFACE_NAME__
+        if model and model.lower() == 'acx':
+            self._get_stats_from_router_command = 'show firewall application routing'
         self._get_stats_from_router_command = self._get_stats_from_router_command.replace(
             "<INTERFACE_NAME>", interface_name)
         if ip_type == 'IPv6':
