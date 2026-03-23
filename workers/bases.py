@@ -44,6 +44,7 @@ class BaseWorker(ABC):
         except Exception as ex:
             Log.warning(f'failed to parse vendor - error: "{str(ex)}"')
             self._vendor = ''
+        self._model = self._args.get('model')
         self._jobs = []
         self._command_worker = None
 
@@ -174,6 +175,10 @@ class BaseWorker(ABC):
         return self._vendor
 
     @property
+    def model(self) -> Optional[str]:
+        return self._model
+
+    @property
     def identifier(self) -> str:
         return self._args.get('identifier') if self._args else None
 
@@ -269,7 +274,7 @@ class BaseWorker(ABC):
                                                          filter_by_prefix=True,
                                                          flow_number=flow_number,
                                                          vrf=kwargs.get('vrf'),
-                                                         stats_type=kwargs.get('stats_type', 'IPv4'))
+                                                         stats_type=kwargs.get('stats_type', 'IPv4'), model=kwargs.get('model'))
         except paramiko.ssh_exception.AuthenticationException as cto_ex:
             logged = f'logged - ' if isinstance(cto_ex, LException) else ''
             Log.error(f'failed to get flows from the router - {logged}error: {str(cto_ex)}')
