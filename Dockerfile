@@ -10,4 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p /etc/secunity
 RUN mkdir -p /var/log/secunity
 
+RUN touch /etc/secunity/secunity.conf
+
 ENTRYPOINT ["python", "/app/bin/start.py", "--program", "stats_fetcher"]
