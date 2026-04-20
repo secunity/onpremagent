@@ -186,6 +186,9 @@ class SshCommandWorker(CommandWorker, ABC):
                 "ipv4", "ipv6") if self._get_stats_from_router_command else None
         return self._get_stats_from_router_command
 
+    def _filter_result(self, result, interface_name=None, ip_type='IPv4', model=None):
+        return result
+
     def get_flows_from_router(self,
                               credentials: Optional[Dict[str, object]] = None,
                               **kwargs) -> List[str]:
@@ -195,6 +198,6 @@ class SshCommandWorker(CommandWorker, ABC):
             Log.debug(f'SSH command: "{self._get_stats_from_router_command}"')
             result = self.execute_cli(command=self._get_stats_from_router_command,
                                       credentials=credentials, **kwargs)
-            return result
+            return self._filter_result(result, kwargs.get('interface_name'), kwargs.get('stats_type', 'IPv4'), kwargs.get('model'))
 
         raise NotImplementedError()
