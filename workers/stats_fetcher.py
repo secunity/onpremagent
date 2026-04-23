@@ -194,7 +194,7 @@ class StatsFetcher(BaseWorker):
 
             Log.debug(f'Credentials from DB - "{ssh_usr}@{ssh_host}:{ssh_port}", vrf: "{vrf}", vendor: "{self._vendor}", model: "{self._model}"')
 
-            return dict(host=ssh_host, port=ssh_port, username=ssh_usr, password=ssh_pass, vrf=vrf) \
+            return dict(host=ssh_host, port=ssh_port, username=ssh_usr, password=ssh_pass, vrf=vrf, model=self._model, vendor=self._vendor) \
                 if ssh_usr and ssh_pass and ssh_host else None
         except Exception as ex:
             Log.exception(f'failed to get credentials from db - "{str(ex)}"')
