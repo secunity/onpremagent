@@ -16,8 +16,16 @@ class HuaweiCommandWorker(SshCommandWorker):
     )
     VPN_DISPLAY_STATISTICS = "display flowspec vpnv4 vpn-instance {vpn_instance} statistics {re_index} | no-more"
 
+    VPN_DISPLAY_ROUTING_TABLE_IPV6 = (
+        "display bgp flow vpnv6 vpn-instance {vpn_instance} routing-table | no-more"
+    )
+    VPN_DISPLAY_STATISTICS_IPV6 = "display flowspec vpnv6 vpn-instance {vpn_instance} statistics {re_index} | no-more"
+
     DISPLAY_ROUTING_TABLE = "display bgp flow routing-table | no-more"
     DISPLAY_STATISTICS = "display flowspec statistics {re_index} | no-more"
+
+    DISPLAY_ROUTING_TABLE_IPV6 = "display bgp flow ipv6 routing-table | no-more"
+    DISPLAY_STATISTICS_IPV6 = "display flowspec ipv6 statistics {re_index} | no-more"
 
     @property
     def vendor(self) -> VENDOR:
@@ -26,24 +34,33 @@ class HuaweiCommandWorker(SshCommandWorker):
     def execute_cli(self, credentials, command=None, exec_command=None, **kwargs):
         stats_type = kwargs.get("stats_type")
         if stats_type == "IPv6":
-            Log.info("No IPv6 support")
-            return []
+            vpn_display_routing_table = self.VPN_DISPLAY_ROUTING_TABLE_IPV6
+            vpn_display_statistics = self.VPN_DISPLAY_STATISTICS_IPV6
+            display_routing_table = self.DISPLAY_ROUTING_TABLE_IPV6
+            display_statistics = self.DISPLAY_STATISTICS_IPV6
+        else:
+            vpn_display_routing_table = self.VPN_DISPLAY_ROUTING_TABLE
+            vpn_display_statistics = self.VPN_DISPLAY_STATISTICS
+            display_routing_table = self.DISPLAY_ROUTING_TABLE
+            display_statistics = self.DISPLAY_STATISTICS
 
         try:
             vpn_instance = kwargs.get("vrf")
 
             if vpn_instance:
                 Log.info(f"Getting BGP statistics for VPN instance: {vpn_instance}")
-                display_routing_table = self.VPN_DISPLAY_ROUTING_TABLE.format(
+                display_routing_table = vpn_display_routing_table.format(
                     vpn_instance=vpn_instance
                 )
-                display_statistics = self.VPN_DISPLAY_STATISTICS.format(
+                display_statistics = vpn_display_statistics.format(
                     vpn_instance=vpn_instance, re_index="{re_index}"
                 )
             else:
                 Log.info("Getting BGP statistics for global routing table")
-                display_routing_table = self.DISPLAY_ROUTING_TABLE
-                display_statistics = self.DISPLAY_STATISTICS.format(
+                display_routing_table = display_routing_table.format(
+                    vpn_instance=vpn_instance
+                )
+                display_statistics = display_statistics.format(
                     re_index="{re_index}"
                 )
 
