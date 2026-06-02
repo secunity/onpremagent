@@ -6,13 +6,25 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "cachetools>=6.2.4",
+    "click>=8.4.1",
     "cryptography>=46.0.3",
     "httpx>=0.28.1",
+    "junos-eznc>=2.7.1",
+    "lxml>=6.1.1",
+    "ncclient>=0.7.1",
     "paramiko>=4.0.0",
+    "parsy>=2.2",
+    "pydantic>=2.13.4",
     "pymongo>=4.15.3",
+    "requests>=2.34.2",
     "routeros-api>=0.21.0",
     "tenacity>=9.1.2",
 ]
 
 [tool.ruff.lint]
 extend-select = ["I"]
+
+[dependency-groups]
+dev = [
+    "types-lxml>=2026.2.16",
+]
