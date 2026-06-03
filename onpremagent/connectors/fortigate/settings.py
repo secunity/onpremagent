@@ -3,16 +3,16 @@ from typing import ClassVar, Literal
 from pydantic import BaseModel, Field
 
 
-class FortiClientSettings(BaseModel):
-    name: ClassVar[str] = "forticlient"
+class FortiGateSettings(BaseModel):
+    name: ClassVar[str] = "fortigate"
 
-    type: Literal["forticlient"]
+    type: Literal["fortigate"]
 
     host: str = Field(
-        description="Hostname or IP address of the FortiClient EMS server"
+        description="Hostname or IP address of the fortigate EMS server"
     )
     token: str = Field(
-        description="API token used to authenticate with the FortiClient API"
+        description="API token used to authenticate with the fortigate API"
     )
     prefix: str = Field(
         default="",

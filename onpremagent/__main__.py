@@ -5,8 +5,8 @@ import click
 import yaml
 
 from onpremagent.connectors.base import BaseConnector
-from onpremagent.connectors.forticlient.connector import FortiClientConnector
-from onpremagent.connectors.forticlient.settings import FortiClientSettings
+from onpremagent.connectors.fortigate.connector import FortiGateConnector
+from onpremagent.connectors.fortigate.settings import FortiGateSettings
 from onpremagent.settings import Settings
 
 handler = logging.StreamHandler(sys.stdout)
@@ -17,9 +17,9 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 
-def connector_factory(settings: FortiClientSettings) -> BaseConnector:
-    if settings.type == FortiClientSettings.name:
-        return FortiClientConnector(settings)
+def connector_factory(settings: FortiGateSettings) -> BaseConnector:
+    if settings.type == FortiGateSettings.name:
+        return FortiGateConnector(settings)
 
     raise ValueError(f"Unsupported connector type: {settings.type}")
 

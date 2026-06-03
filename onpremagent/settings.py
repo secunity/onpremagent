@@ -1,12 +1,12 @@
 from pydantic import BaseModel, Field
 
-from onpremagent.connectors.forticlient.settings import FortiClientSettings
+from onpremagent.connectors.fortigate.settings import FortiGateSettings
 
 
 class Settings(BaseModel):
     """Top-level configuration for the firewall management tool."""
 
-    connector: FortiClientSettings = Field(..., discriminator="type")
+    connector: FortiGateSettings = Field(..., discriminator="type")
 
     identifier: str = Field(
         description="Unique identifier for the agent",

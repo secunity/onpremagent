@@ -7,7 +7,7 @@ import requests
 from urllib3.exceptions import InsecureRequestWarning
 
 from onpremagent.connectors.base import BaseConnector
-from onpremagent.connectors.forticlient.settings import FortiClientSettings
+from onpremagent.connectors.fortigate.settings import FortiGateSettings
 from onpremagent.types.firewall_rule import FirewallRule, FirewallRuleActionBpsLimit
 
 
@@ -42,11 +42,11 @@ class FirewallPolicy(TypedDict):
     matched_packets: NotRequired[int | None]
 
 
-class FortiClientError(Exception):
+class FortiGateError(Exception):
     pass
 
 
-class FortiClientHttpError(FortiClientError):
+class FortiGateHttpError(FortiGateError):
     def __init__(self, status_code: int, message: str) -> None:
         super().__init__(f"HTTP {status_code}: {message}")
 
@@ -190,10 +190,10 @@ def _id_to_address(value: str) -> str:
     return value.replace("_", "/")
 
 
-class FortiClientConnector(BaseConnector[FortiClientSettings]):
+class FortiGateConnector(BaseConnector[FortiGateSettings]):
     def __init__(
         self,
-        settings: FortiClientSettings,
+        settings: FortiGateSettings,
     ) -> None:
         super().__init__(settings)
 
@@ -218,12 +218,12 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
         try:
             res.raise_for_status()
         except requests.HTTPError as e:
-            raise FortiClientHttpError(res.status_code, res.text) from e
+            raise FortiGateHttpError(res.status_code, res.text) from e
 
         result = res.json()
 
         if result["status"] != "success":
-            raise FortiClientError(f"API request failed: {res.text}")
+            raise FortiGateError(f"API request failed: {res.text}")
 
         return result
 
@@ -272,7 +272,7 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
         try:
             self._send_request("GET", f"/api/v2/cmdb/firewall/address/{name}")
             return True
-        except FortiClientHttpError:
+        except FortiGateHttpError:
             return False
 
     def _create_firewall_service(self, service: FirewallService) -> None:
@@ -506,18 +506,18 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
     @override
     def add_firewall_rule(self, rule: FirewallRule) -> None:
         if rule.packet_length is not None:
-            raise ValueError("Packet length matching is not supported by FortiClient")
+            raise ValueError("Packet length matching is not supported by fortigate")
 
         if rule.tcp_flags is not None:
-            raise ValueError("TCP flags matching is not supported by FortiClient")
+            raise ValueError("TCP flags matching is not supported by fortigate")
 
         if rule.protocol is None:
-            raise ValueError("Protocol must be specified for FortiClient")
+            raise ValueError("Protocol must be specified for fortigate")
 
         if rule.source_port is not None and isinstance(rule.source_port, list):
             if len(rule.source_port) > 1:
                 raise ValueError(
-                    "Multiple source ports are not supported by FortiClient"
+                    "Multiple source ports are not supported by fortigate"
                 )
             else:
                 rule.source_port = rule.source_port[0]
@@ -527,13 +527,13 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
         ):
             if len(rule.destination_port) > 1:
                 raise ValueError(
-                    "Multiple destination ports are not supported by FortiClient"
+                    "Multiple destination ports are not supported by fortigate"
                 )
             else:
                 rule.destination_port = rule.destination_port[0]
 
         if rule.action.type == "pps-limit":
-            raise ValueError("pps-limit action is not supported by FortiClient")
+            raise ValueError("pps-limit action is not supported by fortigate")
 
         if rule.source_address is not None:
             source_address_name = (
