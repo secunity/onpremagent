@@ -8,7 +8,7 @@ from urllib3.exceptions import InsecureRequestWarning
 
 from onpremagent.connectors.base import BaseConnector
 from onpremagent.connectors.forticlient.settings import FortiClientSettings
-from onpremagent.types.firewall_rule import FirewallRule
+from onpremagent.types.firewall_rule import FirewallRule, FirewallRuleActionBpsLimit
 
 
 class FirewallAddress(TypedDict):
@@ -33,10 +33,13 @@ class FirewallPolicy(TypedDict):
     src_addr: str
     dst_addr: str
     service: str
-    action: Literal["accept", "deny"]
+    action: Literal["accept", "deny", "rate-limit"]
     comment: str
-    bytes: NotRequired[int | None]
-    packets: NotRequired[int | None]
+    traffic_shaper: NotRequired[str]
+    dropped_bytes: NotRequired[int | None]
+    dropped_packets: NotRequired[int | None]
+    matched_bytes: NotRequired[int | None]
+    matched_packets: NotRequired[int | None]
 
 
 class FortiClientError(Exception):
@@ -383,8 +386,10 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
                     service=item["service"][0]["name"],
                     action=item["action"],
                     comment=item["comments"],
-                    bytes=monitor.get("bytes"),
-                    packets=monitor.get("packets"),
+                    dropped_bytes=monitor.get("bytes"),
+                    dropped_packets=monitor.get("packets"),
+                    matched_bytes=monitor.get("bytes"),
+                    matched_packets=monitor.get("packets"),
                 )
             )
 
@@ -397,6 +402,106 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
         }
 
         self._send_request("PUT", f"/api/v2/cmdb/firewall/policy/{policy_id}", json=req)
+
+    def _create_firewall_traffic_shaper(self, name: str, bandwidth_mbps: int) -> None:
+        req = {
+            "name": name,
+            "bandwidth-unit": "mbps",
+            "maximum-bandwidth": bandwidth_mbps,
+            "guaranteed-bandwidth": bandwidth_mbps,
+            "per-policy": "disable",
+            "comment": self.settings.comment,
+        }
+
+        self._send_request(
+            "POST", "/api/v2/cmdb/firewall.shaper/traffic-shaper", json=req
+        )
+
+    def _delete_firewall_traffic_shaper(self, name: str) -> None:
+        self._send_request(
+            "DELETE", f"/api/v2/cmdb/firewall.shaper/traffic-shaper/{name}"
+        )
+
+    def _create_firewall_traffic_shaper_policy(self, policy: FirewallPolicy) -> int:
+        req = {
+            "name": policy["name"],
+            "srcintf": [{"name": self.settings.src_if}],
+            "dstintf": [{"name": self.settings.dst_if}],
+            "srcaddr": [{"name": policy["src_addr"]}],
+            "dstaddr": [{"name": policy["dst_addr"]}],
+            "action": policy["action"],
+            "schedule": "always",
+            "service": [{"name": policy["service"]}],
+            "status": "enable",
+            "traffic-shaper": policy["traffic_shaper"],
+            "comments": policy["comment"],
+        }
+
+        result = self._send_request(
+            "POST", "/api/v2/cmdb/firewall/shaping-policy", json=req
+        )
+
+        return result["mkey"]
+
+    def _delete_firewall_traffic_shaper_policy(self, policy_id: int) -> None:
+        self._send_request(
+            "DELETE", f"/api/v2/cmdb/firewall/shaping-policy/{policy_id}"
+        )
+
+    def _get_firewall_traffic_shaper_policies(
+        self, filter_prefix: str | None = None, monitor: bool = False
+    ) -> list[FirewallPolicy]:
+        params = {"format": "id|name|srcaddr|dstaddr|service|traffic-shaper|comment"}
+        if filter_prefix is not None:
+            params["filter"] = f"name=@{filter_prefix}"
+
+        result = self._send_request(
+            "GET", "/api/v2/cmdb/firewall/shaping-policy", params=params
+        )
+
+        if monitor:
+            result_monitor = self._send_request(
+                "GET", "/api/v2/monitor/firewall/shaper"
+            )
+
+            policy_monitor = {
+                item["name"]: item
+                for item in result_monitor.get("results", {}).get("data", [])
+            }
+        else:
+            policy_monitor = {}
+
+        items = []
+
+        for item in result.get("results", []):
+            monitor = policy_monitor.get(item["traffic-shaper"], {})
+
+            items.append(
+                FirewallPolicy(
+                    policy_id=item["id"],
+                    name=item["name"],
+                    src_addr=item["srcaddr"][0]["name"],
+                    dst_addr=item["dstaddr"][0]["name"],
+                    service=item["service"][0]["name"],
+                    action="rate-limit",
+                    traffic_shaper=item["traffic-shaper"],
+                    comment=item["comment"],
+                    dropped_bytes=monitor.get("dropped_bytes"),
+                    dropped_packets=monitor.get("dropped_packets"),
+                )
+            )
+
+        return items
+
+    def _move_firewall_traffic_shaper_policy(self, policy_id: int, before: int) -> None:
+        req = {
+            "action": "move",
+            "before": before,
+        }
+
+        self._send_request(
+            "PUT", f"/api/v2/cmdb/firewall/shaping-policy/{policy_id}", json=req
+        )
 
     @override
     def add_firewall_rule(self, rule: FirewallRule) -> None:
@@ -427,8 +532,8 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
             else:
                 rule.destination_port = rule.destination_port[0]
 
-        if rule.action.type not in ("discard", "accept"):
-            raise ValueError(f"Unsupported action type: {rule.action.type}")
+        if rule.action.type == "pps-limit":
+            raise ValueError("pps-limit action is not supported by FortiClient")
 
         if rule.source_address is not None:
             source_address_name = (
@@ -462,8 +567,10 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
 
         if rule.action.type == "accept":
             action = "accept"
-        else:
+        elif rule.action.type == "discard":
             action = "deny"
+        else:
+            action = "rate-limit"
 
         service_name = f"{self.settings.prefix}_{rule.protocol}_{rule.source_port}_{rule.destination_port}"
 
@@ -476,42 +583,100 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
         )
         self._create_firewall_service(service)
 
-        policy = FirewallPolicy(
-            name=f"{self.settings.prefix}_{rule.id}",
-            src_if=self.settings.src_if,
-            dst_if=self.settings.dst_if,
-            src_addr=source_address_name,
-            dst_addr=destination_address_name,
-            service=service_name,
-            action=action,
-            comment=self.settings.comment,
-        )
+        if isinstance(rule.action, FirewallRuleActionBpsLimit):
+            traffic_shaper = f"{self.settings.prefix}_{rule.id[-12:]}_shaper"
 
-        policy_id = self._create_firewall_policy(policy)
-
-        try:
-            self._move_firewall_policy(policy_id, before=1)
-        except Exception as e:
-            self.logger.warning(
-                "Failed to move firewall policy %d to the top: %s", policy_id, e
+            self._create_firewall_traffic_shaper(
+                traffic_shaper, bandwidth_mbps=rule.action.bps // 1_024_000
             )
+
+            policy = FirewallPolicy(
+                name=f"{self.settings.prefix}_{rule.id}",
+                src_if=self.settings.src_if,
+                dst_if=self.settings.dst_if,
+                src_addr=source_address_name,
+                dst_addr=destination_address_name,
+                service=service_name,
+                action=action,
+                traffic_shaper=traffic_shaper,
+                comment=self.settings.comment,
+            )
+
+            policy_id = self._create_firewall_traffic_shaper_policy(policy)
+
+            try:
+                self._move_firewall_traffic_shaper_policy(policy_id, before=1)
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to move firewall traffic shaper policy %d to the top: %s",
+                    policy_id,
+                    e,
+                )
+        else:
+            policy = FirewallPolicy(
+                name=f"{self.settings.prefix}_{rule.id}",
+                src_if=self.settings.src_if,
+                dst_if=self.settings.dst_if,
+                src_addr=source_address_name,
+                dst_addr=destination_address_name,
+                service=service_name,
+                action=action,
+                comment=self.settings.comment,
+            )
+
+            policy_id = self._create_firewall_policy(policy)
+
+            try:
+                self._move_firewall_policy(policy_id, before=1)
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to move firewall policy %d to the top: %s", policy_id, e
+                )
 
     @override
     def remove_firewall_rule(self, rule_id: str) -> None:
         policies = self._get_firewall_policies(
             filter_prefix=f"{self.settings.prefix}_{rule_id}"
         )
+        policies += self._get_firewall_traffic_shaper_policies(
+            filter_prefix=f"{self.settings.prefix}_{rule_id}"
+        )
+
         if len(policies) == 0:
-            raise ValueError(f"No firewall rule found with ID: {rule_id}")
+            raise ValueError(f"Firewall rule with ID {rule_id} not found")
 
         policy = policies[0]
-
-        try:
-            self._delete_firewall_policy(policy["policy_id"])
-        except Exception as e:
-            self.logger.warning(
-                "Failed to delete firewall policy %d: %s", policy["policy_id"], e
+        if policy["name"] != f"{self.settings.prefix}_{rule_id}":
+            raise ValueError(
+                f"Firewall rule ID mismatch: {policy['name']} != {rule_id}"
             )
+
+        if policy["action"] == "rate-limit":
+            try:
+                self._delete_firewall_traffic_shaper_policy(policy["policy_id"])
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to delete firewall traffic shaper policy %d: %s",
+                    policy["policy_id"],
+                    e,
+                )
+
+            if policy["traffic_shaper"].startswith(f"{self.settings.prefix}_"):
+                try:
+                    self._delete_firewall_traffic_shaper(policy["traffic_shaper"])
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to delete firewall traffic shaper %s: %s",
+                        policy["traffic_shaper"],
+                        e,
+                    )
+        else:
+            try:
+                self._delete_firewall_policy(policy["policy_id"])
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to delete firewall policy %d: %s", policy["policy_id"], e
+                )
 
         if policy["src_addr"].startswith(f"{self.settings.prefix}_"):
             try:
@@ -542,14 +707,19 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
         policies = self._get_firewall_policies(
             filter_prefix=f"{self.settings.prefix}_", monitor=True
         )
+        policies += self._get_firewall_traffic_shaper_policies(
+            filter_prefix=f"{self.settings.prefix}_", monitor=True
+        )
 
         rules = []
 
         for policy in policies:
             if policy["action"] == "deny":
-                action_type = "discard"
+                action = {"type": "discard"}
             elif policy["action"] == "accept":
-                action_type = "accept"
+                action = {"type": "accept"}
+            elif policy["action"] == "rate-limit":
+                action = {"type": "bps-limit", "bps": 0}
 
             name = policy["name"].removeprefix(f"{self.settings.prefix}_")
 
@@ -586,9 +756,11 @@ class FortiClientConnector(BaseConnector[FortiClientSettings]):
                     "protocol": protocol,
                     "source_port": source_port,
                     "destination_port": destination_port,
-                    "action": {"type": action_type},
-                    "bytes": policy.get("bytes"),
-                    "packets": policy.get("packets"),
+                    "action": action,
+                    "dropped_bytes": policy.get("bytes"),
+                    "dropped_packets": policy.get("packets"),
+                    "matched_bytes": policy.get("bytes"),
+                    "matched_packets": policy.get("packets"),
                 }
             )
 

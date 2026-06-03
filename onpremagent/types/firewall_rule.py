@@ -164,13 +164,21 @@ class BaseFirewallRule[T](BaseModel):
         discriminator="type",
     )
 
-    bytes: int | None = Field(
+    dropped_bytes: int | None = Field(
         default=None,
-        description="(Optional) Number of bytes to match (if supported by the firewall)",
+        description="Dropped bytes",
     )
-    packets: int | None = Field(
+    dropped_packets: int | None = Field(
         default=None,
-        description="(Optional) Number of packets to match (if supported by the firewall)",
+        description="Dropped packets",
+    )
+    matched_bytes: int | None = Field(
+        default=None,
+        description="Matched bytes",
+    )
+    matched_packets: int | None = Field(
+        default=None,
+        description="Matched packets",
     )
 
 
