@@ -1,4 +1,3 @@
-import logging
 import warnings
 from ipaddress import IPv4Network, IPv6Network
 from typing import Any, Literal, NotRequired, TypedDict, override
@@ -148,7 +147,8 @@ def _format_ports(
     protocol: str | int, dst_port: str | int | None, src_port: str | int | None
 ) -> PortRange:
     if dst_port is None:
-        return {}
+        dst_port = "0-65535"
+
     if src_port is not None:
         port_range = f"{dst_port}:{src_port}"
     else:
@@ -740,7 +740,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 protocol = None
             if source_port == "None":
                 source_port = None
-            if destination_port == "None":
+            if destination_port == "None" or destination_port == "0-65535":
                 destination_port = None
 
             rule = FirewallRule.model_validate(
