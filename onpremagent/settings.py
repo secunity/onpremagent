@@ -16,3 +16,17 @@ class Settings(BaseModel):
         default=False,
         description="If true, the connector will not make any changes to the device and will only log the intended actions",
     )
+
+    flowsec_url: str = Field(
+        default="http://localhost:8000",
+        description="URL of the FlowSec API",
+    )
+
+    sync_interval: int = Field(
+        default=10,
+        description="Interval in seconds between syncs",
+    )
+    send_statistics_interval: int = Field(
+        default=60,
+        description="Interval in seconds between sending statistics",
+    )

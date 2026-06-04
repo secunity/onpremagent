@@ -204,10 +204,6 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
         self.session.verify = self.settings.ssl_verify
         self.session.headers.update({"Authorization": f"Bearer {self.settings.token}"})
 
-        self.logger = logging.getLogger(
-            f"onpremagent.connectors.{self.__class__.__name__}"
-        )
-
     def _send_request(self, method: str, endpoint: str, **kwargs) -> dict:
         self.logger.debug(
             "Sending %s request to %s with params: %s", method, endpoint, kwargs
@@ -221,6 +217,8 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
             raise FortiGateHttpError(res.status_code, res.text) from e
 
         result = res.json()
+
+        self.logger.debug("Received response: %s", result)
 
         if result["status"] != "success":
             raise FortiGateError(f"API request failed: {res.text}")
@@ -511,14 +509,9 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
         if rule.tcp_flags is not None:
             raise ValueError("TCP flags matching is not supported by fortigate")
 
-        if rule.protocol is None:
-            raise ValueError("Protocol must be specified for fortigate")
-
         if rule.source_port is not None and isinstance(rule.source_port, list):
             if len(rule.source_port) > 1:
-                raise ValueError(
-                    "Multiple source ports are not supported by fortigate"
-                )
+                raise ValueError("Multiple source ports are not supported by fortigate")
             else:
                 rule.source_port = rule.source_port[0]
 
@@ -576,7 +569,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
 
         service = FirewallService(
             name=service_name,
-            protocol=rule.protocol,
+            protocol=0 if rule.protocol is None else rule.protocol,
             src_port=rule.source_port if rule.source_port else None,
             dst_port=rule.destination_port if rule.destination_port else None,
             comment=self.settings.comment,
@@ -587,7 +580,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
             traffic_shaper = f"{self.settings.prefix}_{rule.id[-12:]}_shaper"
 
             self._create_firewall_traffic_shaper(
-                traffic_shaper, bandwidth_mbps=rule.action.bps // 1_024_000
+                traffic_shaper, bandwidth_mbps=rule.action.bps // (1_024 * 1_024)
             )
 
             policy = FirewallPolicy(
@@ -743,6 +736,8 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
 
             protocol, source_port, destination_port = service.split("_")
 
+            if protocol == "None":
+                protocol = None
             if source_port == "None":
                 source_port = None
             if destination_port == "None":
@@ -757,10 +752,10 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                     "source_port": source_port,
                     "destination_port": destination_port,
                     "action": action,
-                    "dropped_bytes": policy.get("bytes"),
-                    "dropped_packets": policy.get("packets"),
-                    "matched_bytes": policy.get("bytes"),
-                    "matched_packets": policy.get("packets"),
+                    "dropped_bytes": policy.get("dropped_bytes"),
+                    "dropped_packets": policy.get("dropped_packets"),
+                    "matched_bytes": policy.get("matched_bytes"),
+                    "matched_packets": policy.get("matched_packets"),
                 }
             )
 
@@ -774,4 +769,12 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
 
     @override
     def disconnect(self) -> None:
+        pass
+
+    @override
+    def setup(self) -> None:
+        pass
+
+    @override
+    def cleanup(self) -> None:
         pass

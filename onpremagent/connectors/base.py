@@ -26,3 +26,9 @@ class BaseConnector[ST](ABC):
 
     @abstractmethod
     def disconnect(self) -> None: ...
+
+    @abstractmethod
+    def setup(self) -> None: ...
+
+    @abstractmethod
+    def cleanup(self) -> None: ...
