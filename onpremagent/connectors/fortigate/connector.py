@@ -399,7 +399,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
             "before": before,
         }
 
-        self._send_request("PUT", f"/api/v2/cmdb/firewall/policy/{policy_id}", json=req)
+        self._send_request("PUT", f"/api/v2/cmdb/firewall/policy/{policy_id}", params=req)
 
     def _create_firewall_traffic_shaper(self, name: str, bandwidth_mbps: int) -> None:
         req = {
@@ -498,7 +498,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
         }
 
         self._send_request(
-            "PUT", f"/api/v2/cmdb/firewall/shaping-policy/{policy_id}", json=req
+            "PUT", f"/api/v2/cmdb/firewall/shaping-policy/{policy_id}", params=req
         )
 
     @override
