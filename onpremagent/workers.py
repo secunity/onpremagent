@@ -215,7 +215,7 @@ class SendStatisticsWorker(threading.Thread):
 
                 success = False
 
-            data = [json.loads(i.model_dump(mode="json", fallback=str)) for i in rules]
+            data = [i.model_dump(mode="json") for i in rules]
 
             try:
                 res = session.put(
