@@ -1,3 +1,4 @@
+import datetime
 import warnings
 from ipaddress import IPv4Network, IPv6Network
 from typing import Any, Literal, NotRequired, TypedDict, override
@@ -507,6 +508,8 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
 
     @override
     def add_firewall_rule(self, rule: FirewallRule) -> None:
+        comment = self.settings.comment.format(now=str(datetime.datetime.now()))
+
         if rule.packet_length is not None:
             raise ValueError("Packet length matching is not supported by fortigate")
 
@@ -526,7 +529,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                     address = FirewallAddress(
                         name=source_address_name,
                         subnet=rule.source_address,
-                        comment=self.settings.comment,
+                        comment=comment,
                     )
                     self._create_firewall_address(address)
             except Exception as e:
@@ -548,7 +551,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                     address = FirewallAddress(
                         name=destination_address_name,
                         subnet=rule.destination_address,
-                        comment=self.settings.comment,
+                        comment=comment,
                     )
                     self._create_firewall_address(address)
             except Exception as e:
@@ -591,7 +594,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                     protocol=0 if rule.protocol is None else rule.protocol,
                     src_port=src_port if src_port else None,
                     dst_port=dst_port if dst_port else None,
-                    comment=self.settings.comment,
+                    comment=comment,
                 )
 
                 try:
@@ -622,7 +625,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 services=services,
                 action=action,
                 traffic_shaper=traffic_shaper,
-                comment=self.settings.comment,
+                comment=comment,
             )
 
             try:
@@ -652,7 +655,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 dst_addr=destination_address_name,
                 services=services,
                 action=action,
-                comment=self.settings.comment,
+                comment=comment,
             )
 
             try:
