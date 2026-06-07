@@ -167,17 +167,17 @@ class SyncWorker(threading.Thread):
                                 "Updating status of rule %s in FlowSec to 'removed'",
                                 rule.id,
                             )
-
-                            try:
-                                session.post(
-                                    f"{self.settings.flowsec_url}/api/v3/fstats/{self.settings.identifier}/flows/{rule.id}/status/removed",
-                                )
-                            except Exception:
-                                logger.exception(
-                                    "Failed to update status of rule %s in FlowSec to 'removed'",
-                                    rule.id,
-                                    exc_info=True,
-                                )
+                    else:
+                        try:
+                            session.post(
+                                f"{self.settings.flowsec_url}/api/v3/fstats/{self.settings.identifier}/flows/{rule.id}/status/removed",
+                            )
+                        except Exception:
+                            logger.exception(
+                                "Failed to update status of rule %s in FlowSec to 'removed'",
+                                rule.id,
+                                exc_info=True,
+                            )
 
             logger.info("Finished syncing firewall rules")
 
