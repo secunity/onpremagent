@@ -31,7 +31,7 @@ class FirewallPolicy(TypedDict):
     dst_if: NotRequired[str]
     src_addr: str
     dst_addr: str
-    service: str
+    services: list[str]
     action: Literal["accept", "deny", "rate-limit"]
     comment: str
     traffic_shaper: NotRequired[str]
@@ -167,6 +167,8 @@ def _format_ports(
             protocol = "icmp"
         case 58 | "icmp6":
             protocol = "icmp6"
+        case _:
+            return {}
 
     assert isinstance(protocol, str)
 
@@ -334,7 +336,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
             "dstaddr": [{"name": policy["dst_addr"]}],
             "action": policy["action"],
             "schedule": "always",
-            "service": [{"name": policy["service"]}],
+            "service": [{"name": s} for s in policy["services"]],
             "status": "enable",
             "comments": policy["comment"],
         }
@@ -381,7 +383,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                     name=item["name"],
                     src_addr=item["srcaddr"][0]["name"],
                     dst_addr=item["dstaddr"][0]["name"],
-                    service=item["service"][0]["name"],
+                    services=[s["name"] for s in item["service"]],
                     action=item["action"],
                     comment=item["comments"],
                     dropped_bytes=monitor.get("bytes"),
@@ -399,7 +401,9 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
             "before": before,
         }
 
-        self._send_request("PUT", f"/api/v2/cmdb/firewall/policy/{policy_id}", params=req)
+        self._send_request(
+            "PUT", f"/api/v2/cmdb/firewall/policy/{policy_id}", params=req
+        )
 
     def _create_firewall_traffic_shaper(self, name: str, bandwidth_mbps: int) -> None:
         req = {
@@ -429,7 +433,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
             "dstaddr": [{"name": policy["dst_addr"]}],
             "action": policy["action"],
             "schedule": "always",
-            "service": [{"name": policy["service"]}],
+            "service": [{"name": s} for s in policy["services"]],
             "status": "enable",
             "traffic-shaper": policy["traffic_shaper"],
             "comments": policy["comment"],
@@ -480,7 +484,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                     name=item["name"],
                     src_addr=item["srcaddr"][0]["name"],
                     dst_addr=item["dstaddr"][0]["name"],
-                    service=item["service"][0]["name"],
+                    services=[s["name"] for s in item["service"]],
                     action="rate-limit",
                     traffic_shaper=item["traffic-shaper"],
                     comment=item["comment"],
@@ -508,22 +512,6 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
 
         if rule.tcp_flags is not None:
             raise ValueError("TCP flags matching is not supported by fortigate")
-
-        if rule.source_port is not None and isinstance(rule.source_port, list):
-            if len(rule.source_port) > 1:
-                raise ValueError("Multiple source ports are not supported by fortigate")
-            else:
-                rule.source_port = rule.source_port[0]
-
-        if rule.destination_port is not None and isinstance(
-            rule.destination_port, list
-        ):
-            if len(rule.destination_port) > 1:
-                raise ValueError(
-                    "Multiple destination ports are not supported by fortigate"
-                )
-            else:
-                rule.destination_port = rule.destination_port[0]
 
         if rule.action.type == "pps-limit":
             raise ValueError("pps-limit action is not supported by fortigate")
@@ -565,16 +553,33 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
         else:
             action = "rate-limit"
 
-        service_name = f"{self.settings.prefix}_{rule.protocol}_{rule.source_port}_{rule.destination_port}"
+        if rule.source_port is None or isinstance(rule.source_port, int):
+            source_port = [rule.source_port]
+        else:
+            source_port = rule.source_port
 
-        service = FirewallService(
-            name=service_name,
-            protocol=0 if rule.protocol is None else rule.protocol,
-            src_port=rule.source_port if rule.source_port else None,
-            dst_port=rule.destination_port if rule.destination_port else None,
-            comment=self.settings.comment,
-        )
-        self._create_firewall_service(service)
+        if rule.destination_port is None or isinstance(rule.destination_port, int):
+            destination_port = [rule.destination_port]
+        else:
+            destination_port = rule.destination_port
+
+        services = []
+
+        for src_port in source_port:
+            for dst_port in destination_port:
+                service_name = (
+                    f"{self.settings.prefix}_{rule.protocol}_{src_port}_{dst_port}"
+                )
+                services.append(service_name)
+
+                service = FirewallService(
+                    name=service_name,
+                    protocol=0 if rule.protocol is None else rule.protocol,
+                    src_port=src_port if src_port else None,
+                    dst_port=dst_port if dst_port else None,
+                    comment=self.settings.comment,
+                )
+                self._create_firewall_service(service)
 
         if isinstance(rule.action, FirewallRuleActionBpsLimit):
             traffic_shaper = f"{self.settings.prefix}_{rule.id[-12:]}_shaper"
@@ -589,7 +594,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 dst_if=self.settings.dst_if,
                 src_addr=source_address_name,
                 dst_addr=destination_address_name,
-                service=service_name,
+                services=services,
                 action=action,
                 traffic_shaper=traffic_shaper,
                 comment=self.settings.comment,
@@ -612,7 +617,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 dst_if=self.settings.dst_if,
                 src_addr=source_address_name,
                 dst_addr=destination_address_name,
-                service=service_name,
+                services=services,
                 action=action,
                 comment=self.settings.comment,
             )
@@ -687,13 +692,14 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                     "Failed to delete firewall address %s: %s", policy["dst_addr"], e
                 )
 
-        if policy["service"].startswith(f"{self.settings.prefix}_"):
-            try:
-                self._delete_firewall_service(policy["service"])
-            except Exception as e:
-                self.logger.warning(
-                    "Failed to delete firewall service %s: %s", policy["service"], e
-                )
+        for service in policy["services"]:
+            if service.startswith(f"{self.settings.prefix}_"):
+                try:
+                    self._delete_firewall_service(service)
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to delete firewall service %s: %s", service, e
+                    )
 
     @override
     def list_firewall_rules(self) -> list[FirewallRule]:
@@ -732,16 +738,25 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 )
                 destination_address = _id_to_address(destination_address)
 
-            service = policy["service"].removeprefix(f"{self.settings.prefix}_")
+            services = [
+                s.removeprefix(f"{self.settings.prefix}_") for s in policy["services"]
+            ]
 
-            protocol, source_port, destination_port = service.split("_")
+            source_port = []
+            destination_port = []
 
-            if protocol == "None":
-                protocol = None
-            if source_port == "None":
-                source_port = None
-            if destination_port == "None" or destination_port == "0-65535":
-                destination_port = None
+            for service in services:
+                protocol, src_port, dst_port = service.split("_")
+
+                if protocol == "None":
+                    protocol = None
+                if src_port == "None":
+                    src_port = None
+                if dst_port == "None" or dst_port == "0-65535":
+                    dst_port = None
+
+                source_port.append(src_port)
+                destination_port.append(dst_port)
 
             rule = FirewallRule.model_validate(
                 {
@@ -749,8 +764,10 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                     "source_address": source_address,
                     "destination_address": destination_address,
                     "protocol": protocol,
-                    "source_port": source_port,
-                    "destination_port": destination_port,
+                    "source_port": None if None in source_port else source_port,
+                    "destination_port": None
+                    if None in destination_port
+                    else destination_port,
                     "action": action,
                     "dropped_bytes": policy.get("dropped_bytes"),
                     "dropped_packets": policy.get("dropped_packets"),
