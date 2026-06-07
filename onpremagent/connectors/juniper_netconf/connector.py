@@ -1,4 +1,4 @@
-from typing import Any, override
+from typing import Any, TypedDict, override
 
 from jnpr.junos import Device
 from jnpr.junos.utils.config import Config
@@ -13,6 +13,12 @@ from onpremagent.types.firewall_rule import (
     FirewallRuleActionBpsLimit,
     FirewallRuleActionPpsLimit,
 )
+
+
+class FirewallCounter(TypedDict):
+    name: str
+    packet_count: int | None
+    byte_count: int | None
 
 
 def xml_doc(doc: str) -> Element:
@@ -420,6 +426,31 @@ class JuniperNetconfConnector(BaseConnector[JuniperNetconfSettings]):
                 rule["policer"] = policer.strip()
 
         return type.model_validate(rule)
+
+    def _show_firewall_counters(self) -> list[FirewallCounter]:
+        stats_xml = self._device.rpc.cli(
+            f"show firewall filter {self.settings.filter_name}", format="xml"
+        )
+
+        results: list[FirewallCounter] = []
+        for counter in stats_xml.findall(".//counter"):
+            name = counter.findtext("counter-name", "").strip()
+            if not name:
+                continue
+
+            entry: FirewallCounter = {"name": name, "packet_count": 0, "byte_count": 0}
+
+            packet_count = counter.findtext("packet-count")
+            if packet_count:
+                entry["packet_count"] = int(packet_count.strip())
+
+            byte_count = counter.findtext("byte-count")
+            if byte_count:
+                entry["byte_count"] = int(byte_count.strip())
+
+            results.append(entry)
+
+        return results
 
     @override
     def connect(self) -> None:
