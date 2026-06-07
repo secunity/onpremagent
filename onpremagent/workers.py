@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 import time
@@ -214,7 +215,7 @@ class SendStatisticsWorker(threading.Thread):
 
                 success = False
 
-            data = [i.model_dump() for i in rules]
+            data = [json.loads(i.model_dump(mode="json", fallback=str)) for i in rules]
 
             try:
                 res = session.put(

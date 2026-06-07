@@ -1,3 +1,4 @@
+import enum
 from ipaddress import IPv4Network, IPv6Network
 from typing import Annotated, Any, Literal
 
@@ -106,6 +107,11 @@ type PpsNumber = Annotated[int, Ge(0)]
 type PpsValue = Annotated[PpsNumber, BeforeValidator(parse_pps)]
 
 
+class Family(enum.StrEnum):
+    INET = "inet"
+    INET6 = "inet6"
+
+
 class FirewallRuleActionDiscard(BaseModel):
     type: Literal["discard"] = Field(description="Action to discard matching packets")
 
@@ -180,6 +186,14 @@ class BaseFirewallRule[T](BaseModel):
         default=None,
         description="Matched packets",
     )
+
+    @property
+    def family(self) -> Family:
+        if isinstance(self.source_address, IPv6Network) or isinstance(
+            self.destination_address, IPv6Network
+        ):
+            return Family.INET6
+        return Family.INET
 
 
 class FirewallRule(BaseFirewallRule[IPv4Network | IPv6Network]):
