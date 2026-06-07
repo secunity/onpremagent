@@ -521,13 +521,20 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 f"{self.settings.prefix}_{_address_to_id(rule.source_address)}"
             )
 
-            if not self._check_firewall_address_exists(source_address_name):
-                address = FirewallAddress(
-                    name=source_address_name,
-                    subnet=rule.source_address,
-                    comment=self.settings.comment,
+            try:
+                if not self._check_firewall_address_exists(source_address_name):
+                    address = FirewallAddress(
+                        name=source_address_name,
+                        subnet=rule.source_address,
+                        comment=self.settings.comment,
+                    )
+                    self._create_firewall_address(address)
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to create firewall address for source %s: %s",
+                    rule.source_address,
+                    e,
                 )
-                self._create_firewall_address(address)
         else:
             source_address_name = "all"
 
@@ -536,13 +543,20 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 f"{self.settings.prefix}_{_address_to_id(rule.destination_address)}"
             )
 
-            if not self._check_firewall_address_exists(destination_address_name):
-                address = FirewallAddress(
-                    name=destination_address_name,
-                    subnet=rule.destination_address,
-                    comment=self.settings.comment,
+            try:
+                if not self._check_firewall_address_exists(destination_address_name):
+                    address = FirewallAddress(
+                        name=destination_address_name,
+                        subnet=rule.destination_address,
+                        comment=self.settings.comment,
+                    )
+                    self._create_firewall_address(address)
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to create firewall address for destination %s: %s",
+                    rule.destination_address,
+                    e,
                 )
-                self._create_firewall_address(address)
         else:
             destination_address_name = "all"
 
@@ -579,14 +593,25 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                     dst_port=dst_port if dst_port else None,
                     comment=self.settings.comment,
                 )
-                self._create_firewall_service(service)
+
+                try:
+                    self._create_firewall_service(service)
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to create firewall service %s: %s", service_name, e
+                    )
 
         if isinstance(rule.action, FirewallRuleActionBpsLimit):
             traffic_shaper = f"{self.settings.prefix}_{rule.id[-12:]}_shaper"
 
-            self._create_firewall_traffic_shaper(
-                traffic_shaper, bandwidth_mbps=rule.action.bps // (1_024 * 1_024)
-            )
+            try:
+                self._create_firewall_traffic_shaper(
+                    traffic_shaper, bandwidth_mbps=rule.action.bps // (1_024 * 1_024)
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to create firewall traffic shaper %s: %s", traffic_shaper, e
+                )
 
             policy = FirewallPolicy(
                 name=f"{self.settings.prefix}_{rule.id}",
@@ -600,7 +625,15 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 comment=self.settings.comment,
             )
 
-            policy_id = self._create_firewall_traffic_shaper_policy(policy)
+            try:
+                policy_id = self._create_firewall_traffic_shaper_policy(policy)
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to create firewall traffic shaper policy %s: %s",
+                    policy["name"],
+                    e,
+                )
+                return
 
             try:
                 self._move_firewall_traffic_shaper_policy(policy_id, before=1)
@@ -622,7 +655,13 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
                 comment=self.settings.comment,
             )
 
-            policy_id = self._create_firewall_policy(policy)
+            try:
+                policy_id = self._create_firewall_policy(policy)
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to create firewall policy %s: %s", policy["name"], e
+                )
+                return
 
             try:
                 self._move_firewall_policy(policy_id, before=1)
