@@ -8,13 +8,17 @@ from onpremagent.connectors.base import BaseConnector
 from onpremagent.connectors.fortigate.connector import FortiGateConnector
 from onpremagent.connectors.fortigate.settings import FortiGateSettings
 from onpremagent.settings import Settings
-from onpremagent.workers import SendStatisticsWorker, SyncWorker
+from onpremagent.workers import (
+    ConnectivityCheckerWorker,
+    Heartbeat,
+    SendStatisticsWorker,
+    SyncWorker,
+)
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s - %(message)s"))
 
 logger = logging.getLogger("onpremagent")
-logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 
@@ -41,6 +45,9 @@ def main(ctx, config):
 
     settings = Settings.model_validate(data)
 
+    if settings.log_level:
+        logger.setLevel(settings.log_level.upper())
+
     connector = connector_factory(settings.connector)
 
     ctx.obj = {"settings": settings, "connector": connector}
@@ -52,14 +59,21 @@ def sync(ctx):
     settings: Settings = ctx.obj["settings"]
     connector: BaseConnector = ctx.obj["connector"]
 
-    sync_worker = SyncWorker(settings, connector)
-    send_statistics_worker = SendStatisticsWorker(settings, connector)
+    heartbeat = Heartbeat()
+
+    sync_worker = SyncWorker(settings, connector, heartbeat)
+    send_statistics_worker = SendStatisticsWorker(settings, connector, heartbeat)
+    connectivity_checker_worker = ConnectivityCheckerWorker(
+        settings, connector, heartbeat
+    )
 
     sync_worker.start()
     send_statistics_worker.start()
+    connectivity_checker_worker.start()
 
     sync_worker.join()
     send_statistics_worker.join()
+    connectivity_checker_worker.join()
 
 
 @main.command()

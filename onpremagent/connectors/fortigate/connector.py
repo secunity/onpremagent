@@ -406,14 +406,16 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
             "PUT", f"/api/v2/cmdb/firewall/policy/{policy_id}", params=req
         )
 
-    def _create_firewall_traffic_shaper(self, name: str, bandwidth_mbps: int) -> None:
+    def _create_firewall_traffic_shaper(
+        self, name: str, bandwidth_mbps: int, comment: str
+    ) -> None:
         req = {
             "name": name,
             "bandwidth-unit": "mbps",
             "maximum-bandwidth": bandwidth_mbps,
             "guaranteed-bandwidth": bandwidth_mbps,
             "per-policy": "disable",
-            "comment": self.settings.comment,
+            "comment": comment,
         }
 
         self._send_request(
@@ -508,7 +510,7 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
 
     @override
     def add_firewall_rule(self, rule: FirewallRule) -> None:
-        comment = self.settings.comment.format(now=str(datetime.datetime.now()))
+        comment = self.settings.comment.format(timestamp=str(datetime.datetime.now()))
 
         if rule.packet_length is not None:
             raise ValueError("Packet length matching is not supported by fortigate")
@@ -609,7 +611,9 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
 
             try:
                 self._create_firewall_traffic_shaper(
-                    traffic_shaper, bandwidth_mbps=rule.action.bps // (1_024 * 1_024)
+                    traffic_shaper,
+                    bandwidth_mbps=rule.action.bps // (1_024 * 1_024),
+                    comment=comment,
                 )
             except Exception as e:
                 self.logger.warning(
@@ -836,4 +840,10 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
 
     @override
     def cleanup(self) -> None:
-        pass
+        for rule in self.list_firewall_rules():
+            try:
+                self.remove_firewall_rule(rule.id)
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to remove firewall rule %s during cleanup: %s", rule.id, e
+                )

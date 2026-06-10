@@ -30,3 +30,17 @@ class Settings(BaseModel):
         default=60,
         description="Interval in seconds between sending statistics",
     )
+    connectivity_checker_interval: int = Field(
+        default=30,
+        description="Interval in seconds between connectivity checks",
+    )
+
+    connectivity_timeout: int = Field(
+        default=60,
+        description="Time in seconds after which, if no heartbeat is received, the agent is considered disconnected",
+    )
+
+    log_level: str = Field(
+        default="INFO",
+        description="Logging level (e.g. DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )

@@ -31,6 +31,6 @@ class FortiGateSettings(BaseModel):
         description="Destination interface for created firewall rules",
     )
     comment: str = Field(
-        default="Created by Flowsec Agent",
+        default="Created by Flowsec Agent. Created at {timestamp}",
         description="Comment attached to objects and rules created by the agent",
     )

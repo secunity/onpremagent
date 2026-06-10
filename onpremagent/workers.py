@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from datetime import datetime
 
 import requests
 
@@ -9,12 +10,29 @@ from onpremagent.settings import Settings
 from onpremagent.types.firewall_rule import FirewallRule
 
 
+class Heartbeat:
+    def __init__(self) -> None:
+        self._now = datetime.now()
+        self._lock = threading.Lock()
+
+    def beat(self) -> None:
+        with self._lock:
+            self._now = datetime.now()
+
+    def get_last_beat(self) -> datetime:
+        with self._lock:
+            return self._now
+
+
 class SyncWorker(threading.Thread):
-    def __init__(self, settings: Settings, connector: BaseConnector) -> None:
+    def __init__(
+        self, settings: Settings, connector: BaseConnector, heartbeat: Heartbeat
+    ) -> None:
         super().__init__()
 
         self.settings = settings
         self.connector = connector
+        self.heartbeat = heartbeat
 
         self.logger = logging.getLogger("onpremagent.workers.SyncWorker")
 
@@ -45,6 +63,8 @@ class SyncWorker(threading.Thread):
                 logger.exception("Failed to fetch flows from FlowSec", exc_info=True)
                 time.sleep(self.settings.sync_interval)
                 continue
+            else:
+                self.heartbeat.beat()
 
             logger.info("Fetched %d flows from FlowSec", len(flows))
 
@@ -91,14 +111,20 @@ class SyncWorker(threading.Thread):
                         )
 
                         try:
-                            session.post(
+                            res = session.post(
                                 f"{self.settings.flowsec_url}/api/v3/fstats/{self.settings.identifier}/flows/{rule.id}/status/removed",
                             )
+                            res.raise_for_status()
                         except Exception:
                             logger.exception(
                                 "Failed to update status of rule %s in FlowSec to 'removed'",
                                 rule.id,
                                 exc_info=True,
+                            )
+                        else:
+                            logger.info(
+                                "Updated status of rule %s in FlowSec to 'removed'",
+                                rule.id,
                             )
 
             flows_to_add = (
@@ -132,14 +158,20 @@ class SyncWorker(threading.Thread):
                             )
 
                             try:
-                                session.post(
+                                res = session.post(
                                     f"{self.settings.flowsec_url}/api/v3/fstats/{self.settings.identifier}/flows/{rule.id}/status/applied",
                                 )
+                                res.raise_for_status()
                             except Exception:
                                 logger.exception(
                                     "Failed to update status of rule %s in FlowSec to 'applied'",
                                     rule.id,
                                     exc_info=True,
+                                )
+                            else:
+                                logger.info(
+                                    "Updated status of rule %s in FlowSec to 'applied'",
+                                    rule.id,
                                 )
 
             flows_remove = flows.get("remove", [])
@@ -169,14 +201,20 @@ class SyncWorker(threading.Thread):
                             )
                     else:
                         try:
-                            session.post(
+                            res = session.post(
                                 f"{self.settings.flowsec_url}/api/v3/fstats/{self.settings.identifier}/flows/{rule.id}/status/removed",
                             )
+                            res.raise_for_status()
                         except Exception:
                             logger.exception(
                                 "Failed to update status of rule %s in FlowSec to 'removed'",
                                 rule.id,
                                 exc_info=True,
+                            )
+                        else:
+                            logger.info(
+                                "Updated status of rule %s in FlowSec to 'removed'",
+                                rule.id,
                             )
 
             logger.info("Finished syncing firewall rules")
@@ -185,11 +223,14 @@ class SyncWorker(threading.Thread):
 
 
 class SendStatisticsWorker(threading.Thread):
-    def __init__(self, settings: Settings, connector: BaseConnector) -> None:
+    def __init__(
+        self, settings: Settings, connector: BaseConnector, heartbeat: Heartbeat
+    ) -> None:
         super().__init__()
 
         self.settings = settings
         self.connector = connector
+        self.heartbeat = heartbeat
 
         self.logger = logging.getLogger("onpremagent.workers.SendStatisticsWorker")
 
@@ -213,6 +254,10 @@ class SendStatisticsWorker(threading.Thread):
                 )
 
                 success = False
+            else:
+                logger.info("Fetched %d firewall rules from device", len(rules))
+
+                self.heartbeat.beat()
 
             data = [i.model_dump(mode="json") for i in rules]
 
@@ -230,3 +275,44 @@ class SendStatisticsWorker(threading.Thread):
             logger.info("Finished sending firewall rules statistics to FlowSec")
 
             time.sleep(self.settings.send_statistics_interval)
+
+
+class ConnectivityCheckerWorker(threading.Thread):
+    def __init__(
+        self, settings: Settings, connector: BaseConnector, heartbeat: Heartbeat
+    ) -> None:
+        super().__init__()
+
+        self.settings = settings
+        self.connector = connector
+        self.heartbeat = heartbeat
+
+        self.logger = logging.getLogger("onpremagent.workers.ConnectivityCheckerWorker")
+
+    def run(self) -> None:
+        logger = self.logger
+
+        logger.info("Running connectivity checker worker...")
+
+        while True:
+            now, last_beat = datetime.now(), self.heartbeat.get_last_beat()
+
+            if (now - last_beat).total_seconds() > self.settings.connectivity_timeout:
+                logger.warning(
+                    "No heartbeat received in the last %d seconds. Last heartbeat was at %s.",
+                    self.settings.connectivity_timeout,
+                    last_beat.isoformat(),
+                )
+
+                logger.info("Performing cleanup on connector...")
+
+                try:
+                    self.connector.cleanup()
+                except Exception:
+                    logger.exception(
+                        "Failed to perform cleanup on connector", exc_info=True
+                    )
+                else:
+                    logger.info("Finished performing cleanup on connector")
+
+            time.sleep(self.settings.connectivity_checker_interval)
