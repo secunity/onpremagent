@@ -61,19 +61,20 @@ def sync(ctx):
 
     heartbeat = Heartbeat()
 
-    sync_worker = SyncWorker(settings, connector, heartbeat)
-    send_statistics_worker = SendStatisticsWorker(settings, connector, heartbeat)
-    connectivity_checker_worker = ConnectivityCheckerWorker(
-        settings, connector, heartbeat
-    )
+    workers = []
 
-    sync_worker.start()
-    send_statistics_worker.start()
-    connectivity_checker_worker.start()
+    if settings.run_sync_worker:
+        workers.append(SyncWorker(settings, connector, heartbeat))
+    if settings.run_statistics_worker:
+        workers.append(SendStatisticsWorker(settings, connector, heartbeat))
+    if settings.run_connectivity_checker:
+        workers.append(ConnectivityCheckerWorker(settings, connector, heartbeat))
 
-    sync_worker.join()
-    send_statistics_worker.join()
-    connectivity_checker_worker.join()
+    for worker in workers:
+        worker.start()
+
+    for worker in workers:
+        worker.join()
 
 
 @main.command()

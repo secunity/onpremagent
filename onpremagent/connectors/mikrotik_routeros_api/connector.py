@@ -11,6 +11,7 @@ from onpremagent.connectors.base import BaseConnector
 from onpremagent.connectors.mikrotik_routeros_api.settings import (
     MikrotikRouterOsApiSettings,
 )
+from onpremagent.types.firewall_rule import Family, FirewallRule
 
 
 class MikrotikRouterOsApiConnector(BaseConnector[MikrotikRouterOsApiSettings]):
@@ -39,6 +40,11 @@ class MikrotikRouterOsApiConnector(BaseConnector[MikrotikRouterOsApiSettings]):
                 lambda: StringField(encoding=self.settings.encoding)
             ),
         )
+
+    def _get_resource(self, rule: FirewallRule) -> RouterOsResource:
+        if rule.family == Family.INET6:
+            return self.resource_ipv6
+        return self.resource_ipv4
 
     @override
     def connect(self) -> None:

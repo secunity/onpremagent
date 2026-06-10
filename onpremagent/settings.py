@@ -44,3 +44,16 @@ class Settings(BaseModel):
         default="INFO",
         description="Logging level (e.g. DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
+
+    run_sync_worker: bool = Field(
+        default=True,
+        description="Whether to run the sync worker that periodically syncs firewall rules with the FlowSec API",
+    )
+    run_statistics_worker: bool = Field(
+        default=True,
+        description="Whether to run the statistics worker that periodically sends statistics to the FlowSec API",
+    )
+    run_connectivity_checker: bool = Field(
+        default=True,
+        description="Whether to run the connectivity checker that periodically checks connectivity with the FlowSec API",
+    )
