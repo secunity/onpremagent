@@ -30,7 +30,7 @@ def xml_string(elem: Element) -> str:
 
 
 class JuniperNetconfConnector(BaseConnector[JuniperNetconfSettings]):
-    def __init__(self, settings) -> None:
+    def __init__(self, settings: JuniperNetconfSettings) -> None:
         super().__init__(settings)
 
         kwargs: dict[str, Any] = {
