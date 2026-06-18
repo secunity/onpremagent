@@ -825,25 +825,3 @@ class FortiGateConnector(BaseConnector[FortiGateSettings]):
             rules.append(rule)
 
         return rules
-
-    @override
-    def connect(self) -> None:
-        pass
-
-    @override
-    def disconnect(self) -> None:
-        pass
-
-    @override
-    def setup(self) -> None:
-        pass
-
-    @override
-    def cleanup(self) -> None:
-        for rule in self.list_firewall_rules():
-            try:
-                self.remove_firewall_rule(rule.id)
-            except Exception as e:
-                self.logger.warning(
-                    "Failed to remove firewall rule %s during cleanup: %s", rule.id, e
-                )

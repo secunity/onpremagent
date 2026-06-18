@@ -7,6 +7,8 @@ import yaml
 from onpremagent.connectors.base import BaseConnector
 from onpremagent.connectors.fortigate.connector import FortiGateConnector
 from onpremagent.connectors.fortigate.settings import FortiGateSettings
+from onpremagent.connectors.ssh.connector import SSHConnector
+from onpremagent.connectors.ssh.settings import SSHSettings
 from onpremagent.settings import Settings
 from onpremagent.workers import (
     ConnectivityCheckerWorker,
@@ -22,9 +24,11 @@ logger = logging.getLogger("onpremagent")
 logger.addHandler(handler)
 
 
-def connector_factory(settings: FortiGateSettings) -> BaseConnector:
+def connector_factory(settings: FortiGateSettings | SSHSettings) -> BaseConnector:
     if settings.type == FortiGateSettings.name:
         return FortiGateConnector(settings)
+    elif settings.type == SSHSettings.name:
+        return SSHConnector(settings)
 
     raise ValueError(f"Unsupported connector type: {settings.type}")
 

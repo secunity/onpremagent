@@ -242,24 +242,44 @@ class SendStatisticsWorker(threading.Thread):
         session = requests.Session()
 
         while True:
-            logger.info("Sending firewall rules statistics to FlowSec...")
+            logger.info("Connecting to device to fetch firewall rules statistics...")
 
             try:
-                rules = self.connector.list_firewall_rules()
-
-                success = True
+                self.connector.connect()
             except Exception:
-                logger.exception(
-                    "Failed to fetch firewall rules from device", exc_info=True
-                )
+                logger.exception("Failed to connect to device", exc_info=True)
+                time.sleep(self.settings.send_statistics_interval)
+                continue
 
-                success = False
+            if self.settings.raw_statistics:
+                try:
+                    data = self.connector.get_raw_statistics()
+                    success = True
+                except Exception:
+                    logger.exception(
+                        "Failed to fetch raw statistics from device", exc_info=True
+                    )
+                    data = []
+                    success = False
             else:
-                logger.info("Fetched %d firewall rules from device", len(rules))
+                try:
+                    rules = self.connector.list_firewall_rules()
 
-                self.heartbeat.beat()
+                    data = [i.model_dump(mode="json") for i in rules]
+                    success = True
+                except Exception:
+                    logger.exception(
+                        "Failed to fetch firewall rules from device", exc_info=True
+                    )
 
-            data = [i.model_dump(mode="json") for i in rules]
+                    data = []
+                    success = False
+                else:
+                    logger.info("Fetched %d firewall rules from device", len(rules))
+
+                    self.heartbeat.beat()
+
+            logger.info("Sending firewall rules statistics to FlowSec...")
 
             try:
                 res = session.put(
@@ -271,8 +291,13 @@ class SendStatisticsWorker(threading.Thread):
                 logger.exception(
                     "Failed to send firewall rules statistics to FlowSec", exc_info=True
                 )
+            else:
+                logger.info("Finished sending firewall rules statistics to FlowSec")
 
-            logger.info("Finished sending firewall rules statistics to FlowSec")
+            try:
+                self.connector.disconnect()
+            except Exception:
+                logger.exception("Failed to disconnect from device", exc_info=True)
 
             time.sleep(self.settings.send_statistics_interval)
 
@@ -307,7 +332,15 @@ class ConnectivityCheckerWorker(threading.Thread):
                 logger.info("Performing cleanup on connector...")
 
                 try:
-                    self.connector.cleanup()
+                    for rule in self.list_firewall_rules():
+                        try:
+                            self.remove_firewall_rule(rule.id)
+                        except Exception as e:
+                            self.logger.warning(
+                                "Failed to remove firewall rule %s during cleanup: %s",
+                                rule.id,
+                                e,
+                            )
                 except Exception:
                     logger.exception(
                         "Failed to perform cleanup on connector", exc_info=True

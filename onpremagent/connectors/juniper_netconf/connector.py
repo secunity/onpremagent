@@ -500,10 +500,6 @@ class JuniperNetconfConnector(BaseConnector[JuniperNetconfSettings]):
         self._create_firewall_filter(Family.INET6)
 
     @override
-    def cleanup(self) -> None:
-        pass
-
-    @override
     def add_firewall_rule(self, rule: FirewallRule) -> None:
         if self._check_firewall_rule_exists(rule.id, rule.family):
             raise RuntimeError(f"Firewall rule with ID {rule.id} already exists")

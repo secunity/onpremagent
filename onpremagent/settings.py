@@ -35,6 +35,11 @@ class Settings(BaseModel):
         description="Interval in seconds between connectivity checks",
     )
 
+    raw_statistics: bool = Field(
+        default=False,
+        description="If true, the agent will send raw statistics to the FlowSec API."
+    )
+
     connectivity_timeout: int = Field(
         default=60,
         description="Time in seconds after which, if no heartbeat is received, the agent is considered disconnected",
