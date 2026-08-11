@@ -12,7 +12,7 @@ from paramiko import AutoAddPolicy, Channel, SSHClient
 from paramiko.ssh_exception import SSHException
 from tenacity import retry, wait_fixed
 
-from config import SECUNITY_API_URL, CallableConfig, read_config_file
+from config import SECUNITY_API_URL, USER_AGENT, CallableConfig, read_config_file
 
 SEND_STATISTIC_INTERVAL = timedelta(seconds=60)
 
@@ -245,6 +245,7 @@ class SSHController:
                     json={
                         "data": flows,
                     },
+                    headers={"User-Agent": USER_AGENT},
                 )
                 response.raise_for_status()
 

@@ -14,6 +14,8 @@ from pymongo import MongoClient
 
 type CallableConfig = Callable[[], Config]
 
+USER_AGENT = "FlowSec OnPrem Agent v1.0"
+
 SECUNITY_API_URL = (
     f"{os.getenv('SECUNITY_API_URL', default='https://api.secunity.io')}/fstats"
 )

@@ -16,7 +16,7 @@ from routeros_api.exceptions import RouterOsApiError
 from routeros_api.resource import RouterOsResource
 from tenacity import retry, wait_fixed
 
-from config import SECUNITY_API_URL, CallableConfig, read_config_file
+from config import SECUNITY_API_URL, USER_AGENT, CallableConfig, read_config_file
 
 FIREWALL_RULE_PREFIX = "SECUNITY_"
 
@@ -292,7 +292,7 @@ class MikrotikController:
         try:
             logger.info("Sending statistics to API: %s", payload)
 
-            self.http_client.put("/flows/stat", json=payload)
+            self.http_client.put("/flows/stat", json=payload, headers={"User-Agent": USER_AGENT})
 
             logger.info("Statistics sent successfully")
         except httpx.HTTPError as err:
