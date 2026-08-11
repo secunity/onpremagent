@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -14,26 +13,25 @@ from pymongo import MongoClient
 
 type CallableConfig = Callable[[], Config]
 
-USER_AGENT = "FlowSec OnPrem Agent v1.0"
+USER_AGENT = "FlowSec OnPrem Agent"
 
 SECUNITY_API_URL = (
     f"{os.getenv('SECUNITY_API_URL', default='https://api.secunity.io')}/fstats"
 )
 
+DEFAULT_VENDOR = "cisco"
+
+MIKROTIK_VENDOR = "mikrotik"
+
+SSH_VENDORS = frozenset({"cisco", "juniper", "arista", "huawei"})
+
 logger = logging.getLogger("config")
-logger.setLevel(logging.DEBUG)
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.DEBUG)
-console_handler.setFormatter(
-    logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)8s - %(lineno)s - %(message)s"
-    )
-)
-
-logger.addHandler(console_handler)
 
 client: MongoClient | None = None
+
+
+def normalize_vendor(vendor: str | None) -> str:
+    return (vendor or DEFAULT_VENDOR).strip().lower()
 
 
 @dataclass
@@ -129,7 +127,7 @@ def get_credentials_from_db(db_config: MongoDBConfig, identifier: str):
     password = decrypt_symmetric(ssh_settings.get("password"), key)
     host = ssh_settings.get("ip")
 
-    vendor = account_network_devices.get("vendor")
+    vendor = normalize_vendor(account_network_devices.get("vendor"))
     model = account_network_devices.get("model")
 
     port = ssh_settings.get("port")
@@ -183,11 +181,11 @@ def read_config_file(path: Path) -> Config:
 
             return get_credentials_from_db(mongodb_config, data["identifier"])
 
-        vendor = data.get("vendor")
+        vendor = normalize_vendor(data.get("vendor"))
 
         port = data.get("port")
         if port is None:
-            if vendor == "mikrotik":
+            if vendor == MIKROTIK_VENDOR:
                 port = 8728  # Default MikroTik API port
             else:
                 port = 22  # Default SSH port for other vendors
@@ -196,7 +194,7 @@ def read_config_file(path: Path) -> Config:
             identifier=data["identifier"],
             host=data.get("host"),
             port=port,
-            vendor=data.get("vendor"),
+            vendor=vendor,
             vrf=data.get("vrf"),
             username=data.get("username"),
             password=data.get("password"),

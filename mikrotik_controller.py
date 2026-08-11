@@ -1,12 +1,9 @@
-import argparse
 import collections
 import logging
-import sys
 import threading
 import time
 from datetime import datetime, timedelta
 from ipaddress import ip_network
-from pathlib import Path
 from typing import NotRequired, TypedDict
 
 import httpx
@@ -16,7 +13,7 @@ from routeros_api.exceptions import RouterOsApiError
 from routeros_api.resource import RouterOsResource
 from tenacity import retry, wait_fixed
 
-from config import SECUNITY_API_URL, USER_AGENT, CallableConfig, read_config_file
+from config import SECUNITY_API_URL, USER_AGENT, CallableConfig
 
 FIREWALL_RULE_PREFIX = "SECUNITY_"
 
@@ -30,24 +27,10 @@ WITHDRAW_FIREWALL_RULES_INTERVAL = timedelta(seconds=300)
 
 HEARTBEAT_MAX_TIMEOUT = timedelta(minutes=1)
 
+DRY_RUN = False
+
 
 logger = logging.getLogger("mikrotik-controller")
-logger.setLevel(logging.INFO)
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(
-    logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)8s - %(lineno)s - %(message)s"
-    )
-)
-
-logger.addHandler(console_handler)
-
-httpx_logger = logging.getLogger("httpx")
-httpx_logger.setLevel(logging.DEBUG)
-
-httpx_logger.addHandler(console_handler)
 
 
 class FirewallRule(TypedDict, total=False):
@@ -193,6 +176,10 @@ class MikrotikController:
     def _apply_flow(self, flow: Flow, firewall_rules: dict[str, FirewallRule]) -> None:
         key = flow.pop("id")
 
+        if DRY_RUN:
+            logger.info("Dry run mode enabled, not applying flow %s: %s", key, flow)
+            return
+
         try:
             logger.info("Adding flow to MikroTik: %s", flow)
 
@@ -226,6 +213,10 @@ class MikrotikController:
 
     def _remove_flow(self, flow: Flow, firewall_rules: dict[str, FirewallRule]) -> None:
         key = flow.pop("id")
+
+        if DRY_RUN:
+            logger.info("Dry run mode enabled, not removing flow %s: %s", key, flow)
+            return
 
         try:
             if key not in firewall_rules:
@@ -289,14 +280,17 @@ class MikrotikController:
 
         payload = {"data": data}
 
-        try:
-            logger.info("Sending statistics to API: %s", payload)
+        if DRY_RUN:
+            logger.info("Dry run mode enabled, not sending statistics: %s", payload)
+        else:
+            try:
+                logger.info("Sending statistics to API: %s", payload)
 
-            self.http_client.put("/flows/stat", json=payload, headers={"User-Agent": USER_AGENT})
+                self.http_client.put("/flows/stat", json=payload, headers={"User-Agent": USER_AGENT})
 
-            logger.info("Statistics sent successfully")
-        except httpx.HTTPError as err:
-            logger.error("Failed to send statistics. Error: %s", err)
+                logger.info("Statistics sent successfully")
+            except httpx.HTTPError as err:
+                logger.error("Failed to send statistics. Error: %s", err)
 
         if err_ is not None:
             raise err_
@@ -352,6 +346,13 @@ class MikrotikController:
                     )
                     continue
 
+                if DRY_RUN:
+                    logger.info(
+                        "Dry run mode enabled, not withdrawing flow with ID: %s",
+                        value["id"],
+                    )
+                    continue
+
                 resource.remove(id=value["id"])
 
                 logger.info("Removed flow with ID: %s", value["id"])
@@ -397,14 +398,10 @@ def withdraw_firewall_rules_worker(config: CallableConfig) -> None:
         time.sleep(WITHDRAW_FIREWALL_RULES_INTERVAL.total_seconds())
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Mikrotik Controller")
-    parser.add_argument(
-        "--config", type=Path, required=True, help="Path to the config file"
-    )
-    args = parser.parse_args()
+def run(config: CallableConfig, dry_run: bool = False) -> None:
+    global DRY_RUN
 
-    config = lambda: read_config_file(args.config)
+    DRY_RUN = dry_run
 
     logger.info("Starting Mikrotik Controller")
 
@@ -429,7 +426,3 @@ def main():
     sync_flows_worker_thread.join()
     send_statistics_worker_thread.join()
     withdraw_firewall_rules_worker_thread.join()
-
-
-if __name__ == "__main__":
-    main()

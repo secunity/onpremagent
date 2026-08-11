@@ -1,18 +1,15 @@
-import argparse
 import logging
 import re
-import sys
 import time
 from datetime import timedelta
 from enum import IntEnum
-from pathlib import Path
 
 import httpx
 from paramiko import AutoAddPolicy, Channel, SSHClient
 from paramiko.ssh_exception import SSHException
 from tenacity import retry, wait_fixed
 
-from config import SECUNITY_API_URL, USER_AGENT, CallableConfig, read_config_file
+from config import SECUNITY_API_URL, USER_AGENT, CallableConfig
 
 SEND_STATISTIC_INTERVAL = timedelta(seconds=60)
 
@@ -24,15 +21,6 @@ DRY_RUN = False
 
 
 logger = logging.getLogger("ssh-controller")
-logger.setLevel(logging.INFO)
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(
-    logging.Formatter("%(asctime)s - %(name)s - %(levelname)8s - %(message)s")
-)
-
-logger.addHandler(console_handler)
 
 
 class INetFamily(IntEnum):
@@ -286,28 +274,11 @@ def send_statistics_worker(config: CallableConfig) -> None:
         time.sleep(SEND_STATISTIC_INTERVAL.total_seconds())
 
 
-def main():
+def run(config: CallableConfig, dry_run: bool = False) -> None:
     global DRY_RUN
 
-    parser = argparse.ArgumentParser(description="SSh Controller")
-    parser.add_argument(
-        "--config", type=Path, required=True, help="Path to the config file"
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Enable dry run mode (do not send statistics)",
-    )
-    args = parser.parse_args()
-
-    config = lambda: read_config_file(args.config)
-
-    DRY_RUN = args.dry_run
+    DRY_RUN = dry_run
 
     logger.info("Starting SSH Controller")
 
     send_statistics_worker(config)
-
-
-if __name__ == "__main__":
-    main()
