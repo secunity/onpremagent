@@ -89,10 +89,10 @@ class SSHController:
             stdout_lines: list[str] = stdout.readlines()
             stderr_lines: list[str] = stderr.readlines()
 
-            logger.info("Command stdout: %s", stdout_lines)
+            logger.info("Command stdout:\n%s", "".join(stdout_lines))
 
             if len(stderr_lines) > 0:
-                logger.error("Command stderr: %s", stderr_lines)
+                logger.error("Command stderr:\n%s", "".join(stderr_lines))
 
             return [_.rstrip("\r\n") for _ in stdout_lines]
         except SSHException:
@@ -256,7 +256,7 @@ class SSHController:
 
             flows = get_flows_func(ip_family, self.config.vrf, self.config.model)
 
-            logger.info("Lines:\n%s", flows)
+            logger.info("Lines: %d", len(flows))
 
             if DRY_RUN:
                 logger.info("Dry run mode enabled, not sending statistics")
