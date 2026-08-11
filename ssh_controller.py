@@ -90,7 +90,9 @@ class SSHController:
             stderr_lines: list[str] = stderr.readlines()
 
             logger.info("Command stdout: %s", stdout_lines)
-            logger.error("Command stderr: %s", stderr_lines)
+
+            if len(stderr_lines) > 0:
+                logger.error("Command stderr: %s", stderr_lines)
 
             return [_.rstrip("\r\n") for _ in stdout_lines]
         except SSHException:
@@ -226,32 +228,29 @@ class SSHController:
 
         logger.info("Fetching flows for vendor: %s", self.config.vendor)
 
-        logger.info("Fetching flows for IPv4")
-        flows_ipv4 = get_flows_func(INetFamily.IPV4, self.config.vrf)
+        for ip_family in INetFamily:
+            logger.info("Fetching flows for %s", ip_family.name)
 
-        logger.info("Fetching flows for IPv6")
-        flows_ipv6 = get_flows_func(INetFamily.IPV6, self.config.vrf)
+            flows = get_flows_func(ip_family, self.config.vrf)
 
-        flows = flows_ipv4 + flows_ipv6
+            logger.info("Lines:\n%s", flows)
 
-        logger.info("Found %d flows: %s", len(flows), flows)
+            if DRY_RUN:
+                logger.info("Dry run mode enabled, not sending statistics")
+                continue
 
-        if DRY_RUN:
-            logger.info("Dry run mode enabled, not sending statistics")
-            return
+            try:
+                response = self.http_client.put(
+                    "/flows/stat",
+                    json={
+                        "data": flows,
+                    },
+                )
+                response.raise_for_status()
 
-        try:
-            response = self.http_client.put(
-                "/flows/stat",
-                json={
-                    "data": flows,
-                },
-            )
-            response.raise_for_status()
-
-            logger.info("Statistics sent successfully")
-        except httpx.HTTPError:
-            logger.exception("Failed to send statistics")
+                logger.info("Statistics sent successfully")
+            except httpx.HTTPError:
+                logger.exception("Failed to send statistics")
 
 
 @retry(wait=wait_fixed(SEND_STATISTIC_INTERVAL))
