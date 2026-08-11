@@ -122,20 +122,39 @@ class SSHController:
 
         return "".join(full_output)
 
-    def get_juniper_flows(self, inet_family: INetFamily, vrf: str | None = None) -> list[str]:
+    def get_juniper_flows(
+        self, inet_family: INetFamily, vrf: str | None = None, model: str | None = None
+    ) -> list[str]:
         if inet_family == INetFamily.IPV4:
             inet_family_ = "inet"
         elif inet_family == INetFamily.IPV6:
             inet_family_ = "inet6"
 
-        command = "show firewall filter detail __flowspec_{interface_name}_{inet_family}__".format(
-            interface_name=vrf,
-            inet_family=inet_family_,
-        )
+        if vrf is None or vrf == "":
+            vrf = "default"
 
-        return self._exec(command)
+        if model is not None and model.lower().startswith("acx"):
+            command = "show firewall application routing"
+        else:
+            command = "show firewall filter detail __flowspec_{interface_name}_{inet_family}__".format(
+                interface_name=vrf,
+                inet_family=inet_family_,
+            )
 
-    def get_cisco_flows(self, inet_family: INetFamily, vrf: str | None = None) -> list[str]:
+        stdout = self._exec(command)
+
+        expected_filter_name = f"__flowspec_{vrf}_{inet_family_}__"
+
+        filters = re.findall(r"Filter:\s+(?P<filter_name>\S+)(?P<data>.+?)(?=Filter:|\Z)", "\n".join(stdout), re.DOTALL | re.MULTILINE)
+        for filter_name, data in filters:
+            if filter_name == expected_filter_name:
+                return [f"Filter: {filter_name}"] + data.splitlines()
+
+        return []
+
+    def get_cisco_flows(
+        self, inet_family: INetFamily, vrf: str | None = None, model: str | None = None
+    ) -> list[str]:
         if inet_family == INetFamily.IPV4:
             inet_family_ = "ipv4"
         elif inet_family == INetFamily.IPV6:
@@ -151,7 +170,9 @@ class SSHController:
 
         return self._exec(command)
 
-    def get_arista_flows(self, inet_family: INetFamily, vrf: str | None = None) -> list[str]:
+    def get_arista_flows(
+        self, inet_family: INetFamily, vrf: str | None = None, model: str | None = None
+    ) -> list[str]:
         if inet_family == INetFamily.IPV4:
             inet_family_ = "ipv4"
         elif inet_family == INetFamily.IPV6:
@@ -161,7 +182,9 @@ class SSHController:
 
         return self._exec(command)
 
-    def get_huawei_flows(self, inet_family: INetFamily, vrf: str | None = None) -> list[str]:
+    def get_huawei_flows(
+        self, inet_family: INetFamily, vrf: str | None = None, model: str | None = None
+    ) -> list[str]:
         if inet_family == INetFamily.IPV4:
             inet_family_ = "vpnv4"
         elif inet_family == INetFamily.IPV6:
@@ -231,7 +254,7 @@ class SSHController:
         for ip_family in INetFamily:
             logger.info("Fetching flows for %s", ip_family.name)
 
-            flows = get_flows_func(ip_family, self.config.vrf)
+            flows = get_flows_func(ip_family, self.config.vrf, self.config.model)
 
             logger.info("Lines:\n%s", flows)
 
