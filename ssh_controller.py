@@ -20,6 +20,8 @@ SSH_TIMEOUT = 30.0
 
 HTTP_TIMEOUT = 10.0
 
+DRY_RUN = False
+
 
 logger = logging.getLogger("ssh-controller")
 logger.setLevel(logging.INFO)
@@ -231,6 +233,10 @@ class SSHController:
 
         logger.info("Found %d flows: %s", len(flows), flows)
 
+        if DRY_RUN:
+            logger.info("Dry run mode enabled, not sending statistics")
+            return
+
         try:
             response = self.http_client.put(
                 "/flows/stat",
@@ -255,13 +261,22 @@ def send_statistics_worker(config: CallableConfig) -> None:
 
 
 def main():
+    global DRY_RUN
+
     parser = argparse.ArgumentParser(description="SSh Controller")
     parser.add_argument(
         "--config", type=Path, required=True, help="Path to the config file"
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Enable dry run mode (do not send statistics)",
+    )
     args = parser.parse_args()
 
     config = lambda: read_config_file(args.config)
+
+    DRY_RUN = args.dry_run
 
     logger.info("Starting SSH Controller")
 
