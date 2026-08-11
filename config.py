@@ -52,6 +52,7 @@ class Config:
     username: str | None = None
     password: str | None = None
     vrf: str | None = None
+    model: str | None = None
 
     # MikroTik specific settings
     plaintext_login: bool = True
@@ -111,6 +112,7 @@ def get_credentials_from_db(db_config: MongoDBConfig, identifier: str):
     host = ssh_settings.get("ip")
 
     vendor = account_network_devices.get("vendor")
+    model = account_network_devices.get("model")
 
     port = ssh_settings.get("port")
     if port is None:
@@ -136,6 +138,7 @@ def get_credentials_from_db(db_config: MongoDBConfig, identifier: str):
         plaintext_login=plaintext_login,
         encoding=encoding,
         enable_ipv6=enable_ipv6,
+        model=model,
     )
 
     logger.debug("Credentials from DB: %s", config)
@@ -182,4 +185,5 @@ def read_config_file(path: Path) -> Config:
             plaintext_login=data.get("plaintext_login", True),
             encoding=data.get("encoding", "utf-8"),
             enable_ipv6=data.get("enable_ipv6", True),
+            model=data.get("model"),
         )
