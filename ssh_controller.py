@@ -139,7 +139,7 @@ class SSHController:
         elif inet_family == INetFamily.IPV6:
             inet_family_ = "ipv6"
 
-        if vrf is None:
+        if vrf is None or vrf == "":
             vrf = "all"
 
         command = "show flowspec vrf {interface_name} {inet_family} detail".format(
