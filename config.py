@@ -44,6 +44,13 @@ class MongoDBConfig:
     port: int
     db_name: str
 
+    def __repr__(self) -> str:
+        # we write a custom __repr__ method to avoid printing the password in logs
+        return (
+            f"MongoDBConfig(username={self.username}, host={self.host}, "
+            f"port={self.port}, db_name={self.db_name})"
+        )
+
 
 @dataclass
 class Config:
@@ -64,6 +71,15 @@ class Config:
 
     cloud: bool = False
     mongodb: MongoDBConfig | None = None
+
+    def __repr__(self) -> str:
+        # we write a custom __repr__ method to avoid printing the password in logs
+        return (
+            f"Config(identifier={self.identifier}, vendor={self.vendor}, host={self.host}, "
+            f"port={self.port}, username={self.username}, password={'REDACTED' if self.password else None}, "
+            f"vrf={self.vrf}, model={self.model}, plaintext_login={self.plaintext_login}, "
+            f"encoding={self.encoding}, enable_ipv6={self.enable_ipv6})"
+        )
 
 
 def decrypt_symmetric(data: bytes, key: str) -> bytes:
