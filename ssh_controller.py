@@ -120,7 +120,7 @@ class SSHController:
 
         return "".join(full_output)
 
-    def get_juniper_flows(self, vrf: str, inet_family: INetFamily) -> list[str]:
+    def get_juniper_flows(self, inet_family: INetFamily, vrf: str | None = None) -> list[str]:
         if inet_family == INetFamily.IPV4:
             inet_family_ = "inet"
         elif inet_family == INetFamily.IPV6:
@@ -133,20 +133,23 @@ class SSHController:
 
         return self._exec(command)
 
-    def get_cisco_flows(self, vrf: str, inet_family: INetFamily) -> list[str]:
+    def get_cisco_flows(self, inet_family: INetFamily, vrf: str | None = None) -> list[str]:
         if inet_family == INetFamily.IPV4:
             inet_family_ = "ipv4"
         elif inet_family == INetFamily.IPV6:
             inet_family_ = "ipv6"
 
-        command = "show ip flow {interface_name} {inet_family}".format(
+        if vrf is None:
+            vrf = "all"
+
+        command = "show flowspec vrf {interface_name} {inet_family} detail".format(
             interface_name=vrf,
             inet_family=inet_family_,
         )
 
         return self._exec(command)
 
-    def get_arista_flows(self, vrf: str, inet_family: INetFamily) -> list[str]:
+    def get_arista_flows(self, inet_family: INetFamily, vrf: str | None = None) -> list[str]:
         if inet_family == INetFamily.IPV4:
             inet_family_ = "ipv4"
         elif inet_family == INetFamily.IPV6:
@@ -156,7 +159,7 @@ class SSHController:
 
         return self._exec(command)
 
-    def get_huawei_flows(self, vrf: str, inet_family: INetFamily) -> list[str]:
+    def get_huawei_flows(self, inet_family: INetFamily, vrf: str | None = None) -> list[str]:
         if inet_family == INetFamily.IPV4:
             inet_family_ = "vpnv4"
         elif inet_family == INetFamily.IPV6:
@@ -224,10 +227,10 @@ class SSHController:
         logger.info("Fetching flows for vendor: %s", self.config.vendor)
 
         logger.info("Fetching flows for IPv4")
-        flows_ipv4 = get_flows_func(self.config.vrf, INetFamily.IPV4)
+        flows_ipv4 = get_flows_func(INetFamily.IPV4, self.config.vrf)
 
         logger.info("Fetching flows for IPv6")
-        flows_ipv6 = get_flows_func(self.config.vrf, INetFamily.IPV6)
+        flows_ipv6 = get_flows_func(INetFamily.IPV6, self.config.vrf)
 
         flows = flows_ipv4 + flows_ipv6
 
