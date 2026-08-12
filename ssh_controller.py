@@ -180,14 +180,32 @@ class SSHController:
 
         shell_prompt = re.compile(r"<.*?>")
 
-        display_routing_table = "display bgp flow {inet_family} vpn-instance {vpn_instance} routing-table | no-more".format(
-            inet_family=inet_family_,
-            vpn_instance=vrf,
-        )
-        display_statistics = "display flowspec {inet_family} vpn-instance {vpn_instance} statistics {{re_index}} | no-more".format(
-            inet_family=inet_family_,
-            vpn_instance=vrf,
-        )
+        if vrf is None or vrf == "":
+            if inet_family == INetFamily.IPV4:
+                inet_family_ = ""
+            elif inet_family == INetFamily.IPV6:
+                inet_family_ = "ipv6"
+            
+            display_routing_table = "display bgp flow {inet_family} routing-table | no-more".format(
+                inet_family=inet_family_,
+            )
+            display_statistics = "display flowspec {inet_family} statistics {{re_index}} | no-more".format(
+                inet_family=inet_family_,
+            )
+        else:
+            if inet_family == INetFamily.IPV4:
+                inet_family_ = "vpnv4"
+            elif inet_family == INetFamily.IPV6:
+                inet_family_ = "vpnv6"
+
+            display_routing_table = "display bgp flow {inet_family} vpn-instance {vpn_instance} routing-table | no-more".format(
+                inet_family=inet_family_,
+                vpn_instance=vrf,
+            )
+            display_statistics = "display flowspec {inet_family} vpn-instance {vpn_instance} statistics {{re_index}} | no-more".format(
+                inet_family=inet_family_,
+                vpn_instance=vrf,
+            )
 
         try:
             self._connect()
