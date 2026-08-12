@@ -133,7 +133,11 @@ class SSHController:
 
         expected_filter_name = f"__flowspec_{vrf}_{inet_family_}__"
 
-        filters = re.findall(r"Filter:\s+(?P<filter_name>\S+)(?P<data>.+?)(?=Filter:|\Z)", "\n".join(stdout), re.DOTALL | re.MULTILINE)
+        filters = re.findall(
+            r"Filter:\s+(?P<filter_name>\S+)(?P<data>.+?)(?=Filter:|\Z)",
+            "\n".join(stdout),
+            re.DOTALL | re.MULTILINE,
+        )
         for filter_name, data in filters:
             if filter_name == expected_filter_name:
                 return [f"Filter: {filter_name}"] + data.splitlines()
@@ -173,11 +177,6 @@ class SSHController:
     def get_huawei_flows(
         self, inet_family: INetFamily, vrf: str | None = None, model: str | None = None
     ) -> list[str]:
-        if inet_family == INetFamily.IPV4:
-            inet_family_ = "vpnv4"
-        elif inet_family == INetFamily.IPV6:
-            inet_family_ = "vpnv6"
-
         shell_prompt = re.compile(r"<.*?>")
 
         if vrf is None or vrf == "":
@@ -185,9 +184,11 @@ class SSHController:
                 inet_family_ = ""
             elif inet_family == INetFamily.IPV6:
                 inet_family_ = "ipv6"
-            
-            display_routing_table = "display bgp flow {inet_family} routing-table | no-more".format(
-                inet_family=inet_family_,
+
+            display_routing_table = (
+                "display bgp flow {inet_family} routing-table | no-more".format(
+                    inet_family=inet_family_,
+                )
             )
             display_statistics = "display flowspec {inet_family} statistics {{re_index}} | no-more".format(
                 inet_family=inet_family_,
@@ -207,6 +208,9 @@ class SSHController:
                 vpn_instance=vrf,
             )
 
+        display_routing_table = re.sub(r"\s+", " ", display_routing_table).strip()
+        display_statistics = re.sub(r"\s+", " ", display_statistics).strip()
+
         try:
             self._connect()
 
@@ -221,6 +225,8 @@ class SSHController:
             shell.sendall(f"{display_routing_table}\n")
             output = self._read_and_wait(shell, shell_prompt)
 
+            logger.info("%s", output)
+
             output_array += output.splitlines()
 
             for re_index in re.findall(r"ReIndex\s*:\s*(\d+)", output):
@@ -230,12 +236,12 @@ class SSHController:
                 shell.sendall(command)
                 output = self._read_and_wait(shell, shell_prompt)
 
+                logger.info("%s", output)
+
                 output_array += ["\f"]
                 output_array += output.splitlines()
 
             self.ssh_client.close()
-
-            logger.info("Flows:\n%s", "\n".join(output_array))
 
             return output_array
         except Exception:
