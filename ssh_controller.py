@@ -233,7 +233,7 @@ class SSHController:
                 command = display_statistics.format(re_index=re_index)
 
                 logger.info("Executing command: %s", command)
-                shell.sendall(command)
+                shell.sendall(f"{command}\n")
                 output = self._read_and_wait(shell, shell_prompt)
 
                 logger.info("%s", output)
