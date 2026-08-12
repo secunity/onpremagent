@@ -44,7 +44,7 @@ def run(config_fn: CallableConfig, dry_run: bool = False) -> None:
 def main():
     parser = argparse.ArgumentParser(description="FlowSec OnPrem Agent")
     parser.add_argument(
-        "--config", type=Path, required=True, default=DEFAULT_CONFIG_PATH, help="Path to the config file"
+        "--config", type=Path, default=DEFAULT_CONFIG_PATH, help="Path to the config file"
     )
     parser.add_argument(
         "--dry-run",
