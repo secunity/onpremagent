@@ -6,7 +6,13 @@ from pathlib import Path
 
 import mikrotik_controller
 import ssh_controller
-from config import MIKROTIK_VENDOR, SSH_VENDORS, CallableConfig, read_config_file
+from config import (
+    DEFAULT_CONFIG_PATH,
+    MIKROTIK_VENDOR,
+    SSH_VENDORS,
+    CallableConfig,
+    read_config_file,
+)
 
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)8s - %(lineno)s - %(message)s"
 
@@ -38,7 +44,7 @@ def run(config_fn: CallableConfig, dry_run: bool = False) -> None:
 def main():
     parser = argparse.ArgumentParser(description="FlowSec OnPrem Agent")
     parser.add_argument(
-        "--config", type=Path, required=True, help="Path to the config file"
+        "--config", type=Path, required=True, default=DEFAULT_CONFIG_PATH, help="Path to the config file"
     )
     parser.add_argument(
         "--dry-run",

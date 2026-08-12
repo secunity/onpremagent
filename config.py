@@ -19,6 +19,8 @@ SECUNITY_API_URL = (
     f"{os.getenv('SECUNITY_API_URL', default='https://api.secunity.io')}/fstats"
 )
 
+DEFAULT_CONFIG_PATH = Path("/etc/secunity/secunity.conf")
+
 DEFAULT_VENDOR = "cisco"
 
 MIKROTIK_VENDOR = "mikrotik"
