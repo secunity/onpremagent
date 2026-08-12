@@ -217,6 +217,8 @@ class SSHController:
 
             self.ssh_client.close()
 
+            logger.info("Flows:\n%s", "\n".join(output_array))
+
             return output_array
         except Exception:
             logger.exception("Failed to get Huawei flows")
