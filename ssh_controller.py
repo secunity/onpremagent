@@ -268,9 +268,12 @@ class SSHController:
         for ip_family in INetFamily:
             logger.info("Fetching flows for %s", ip_family.name)
 
-            flows = get_flows_func(ip_family, self.config.vrf, self.config.model)
-
-            logger.info("Lines: %d", len(flows))
+            try:
+                flows = get_flows_func(ip_family, self.config.vrf, self.config.model)
+                logger.info("Lines: %d", len(flows))
+            except Exception:
+                logger.exception("Failed to fetch flows for %s", ip_family.name)
+                continue
 
             if DRY_RUN:
                 logger.info("Dry run mode enabled, not sending statistics")
