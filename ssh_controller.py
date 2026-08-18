@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from enum import IntEnum
 
 import httpx
@@ -61,11 +61,7 @@ class SSHController:
         self.ssh_client.connect(**params)
 
     def _exec(self, command: str) -> list[str]:
-        try:
-            self._connect()
-        except SSHException:
-            logger.exception("SSH connection failed")
-            return []
+        self._connect()
 
         logger.info("Executing command: %s", command)
 
@@ -82,10 +78,16 @@ class SSHController:
             if len(stderr_lines) > 0:
                 logger.error("Command stderr:\n%s", "".join(stderr_lines))
 
+            return_code = stdout.channel.recv_exit_status()
+
+            if return_code != 0:
+                logger.error("Command failed with return code: %d", return_code)
+
+                raise SSHException("".join([_.rstrip("\r\n") for _ in stderr_lines]))
+
             return [_.rstrip("\r\n") for _ in stdout_lines]
         except SSHException:
-            logger.exception("SSH command execution failed")
-            return []
+            raise
         finally:
             self.ssh_client.close()
 
@@ -211,9 +213,9 @@ class SSHController:
         display_routing_table = re.sub(r"\s+", " ", display_routing_table).strip()
         display_statistics = re.sub(r"\s+", " ", display_statistics).strip()
 
-        try:
-            self._connect()
+        self._connect()
 
+        try:
             shell = self.ssh_client.invoke_shell()
 
             output_array = []
@@ -241,12 +243,11 @@ class SSHController:
                 output_array += ["\f"]
                 output_array += output.splitlines()
 
-            self.ssh_client.close()
-
             return output_array
-        except Exception:
-            logger.exception("Failed to get Huawei flows")
-            return []
+        except SSHException:
+            raise
+        finally:
+            self.ssh_client.close()
 
     def send_statistics(self) -> None:
         get_flows_func = None
@@ -270,8 +271,11 @@ class SSHController:
 
             try:
                 flows = get_flows_func(ip_family, self.config.vrf, self.config.model)
+                success = True
                 logger.info("Lines: %d", len(flows))
-            except Exception:
+            except Exception as e:
+                flows = [e]
+                success = False
                 logger.exception("Failed to fetch flows for %s", ip_family.name)
                 continue
 
@@ -284,6 +288,8 @@ class SSHController:
                     "/flows/stat",
                     json={
                         "data": flows,
+                        "success": success,
+                        "local_time": datetime.now(UTC).isoformat(),
                     },
                     headers={"User-Agent": USER_AGENT},
                 )

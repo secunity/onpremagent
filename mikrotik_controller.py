@@ -266,7 +266,7 @@ class MikrotikController:
         try:
             firewall_rules = self._get_firewall_rules()
         except Exception as err:
-            data = f"{err}"
+            data = [f"{err}"]
 
             err_ = err
         else:
@@ -278,7 +278,11 @@ class MikrotikController:
                 for key, value in firewall_rules.items()
             ]
 
-        payload = {"data": data}
+        payload = {
+            "data": data,
+            "success": err_ is None,
+            "local_time": datetime.now().isoformat(),
+        }
 
         if DRY_RUN:
             logger.info("Dry run mode enabled, not sending statistics: %s", payload)
@@ -286,7 +290,9 @@ class MikrotikController:
             try:
                 logger.info("Sending statistics to API: %s", payload)
 
-                self.http_client.put("/flows/stat", json=payload, headers={"User-Agent": USER_AGENT})
+                self.http_client.put(
+                    "/flows/stat", json=payload, headers={"User-Agent": USER_AGENT}
+                )
 
                 logger.info("Statistics sent successfully")
             except httpx.HTTPError as err:
